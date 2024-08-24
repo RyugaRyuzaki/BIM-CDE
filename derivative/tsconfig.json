@@ -1,0 +1,27 @@
+ 
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "CommonJS",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "declaration": true,
+    "allowJs": true,
+  },
+  "ts-node": {
+    "experimentalSpecifierResolution": "node",
+    "transpileOnly": true,
+    "compilerOptions": {
+      "esModuleInterop": true,
+      "module": "CommonJS"
+    },
+  },
+  "compileOnSave": true,
+  "include": ["src",],
+  "exclude": ["node_modules","build","bim-fragment"]
+}

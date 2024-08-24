@@ -1,0 +1,5 @@
+{
+    "watch": ["src"],
+    "ext": ".ts,.js",
+    "exec": "set NODE_OPTIONS=--max-old-space-size=16384 && node --env-file=.env.dev  --no-warnings=ExperimentalWarning --require ts-node/register --loader ts-node/esm src/server.ts"
+}

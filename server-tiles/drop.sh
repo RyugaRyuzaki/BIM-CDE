@@ -1,0 +1,1 @@
+docker rm --force postgres_container
