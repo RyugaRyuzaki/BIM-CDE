@@ -3,7 +3,11 @@ import {GiHamburgerMenu} from "react-icons/gi";
 //@ts-ignore
 import {ReactComponent as Logo} from "@assets/logo.svg";
 
+import {bimRouteSignal} from "@stores/viewer/config";
+import {useSignals} from "@preact/signals-react/runtime";
+import ToggleView from "./ToggleView";
 const HeaderMenu = () => {
+  useSignals();
   return (
     <div className="flex">
       <div className="flex-shrink-0">
@@ -19,6 +23,11 @@ const HeaderMenu = () => {
           <GiHamburgerMenu className="h-8 w-8" />
         </button>
       </div>
+      {bimRouteSignal.value && (
+        <div className="my-auto flex justify-start mx-3">
+          <ToggleView />
+        </div>
+      )}
     </div>
   );
 };

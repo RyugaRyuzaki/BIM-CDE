@@ -3,16 +3,14 @@ import LeftPanel from "./bim/LeftPanel";
 import {BimModel} from "@bim/BimModel";
 import {useSignals} from "@preact/signals-react/runtime";
 import {
+  disposeViewerLoader,
   fileLoaderSignal,
   geometryLoaderSignal,
-  modelIdSignal,
-  modelLoadingSignal,
   propertyLoaderSignal,
-  spinnerSignal,
-  versionIdSignal,
 } from "@stores/viewer/loader";
 import Spinner from "@components/Spinner/Spinner";
 import NotifyProgress from "@components/Notify/NotifyProgress";
+import {bimRouteSignal, disposeViewerConfig} from "@stores/viewer/config";
 const BimViewer = () => {
   useSignals();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -21,6 +19,7 @@ const BimViewer = () => {
     if (!containerRef.current) return;
     const model = new BimModel(containerRef.current);
     setBimModel(model);
+    bimRouteSignal.value = true;
     if (navigator.storage && navigator.storage.estimate) {
       navigator.storage.estimate().then((estimate: StorageEstimate) => {
         const {usage, quota} = estimate;
@@ -28,13 +27,8 @@ const BimViewer = () => {
       });
     }
     return () => {
-      modelLoadingSignal.value = false;
-      spinnerSignal.value = false;
-      fileLoaderSignal.value = null;
-      geometryLoaderSignal.value = null;
-      propertyLoaderSignal.value = null;
-      modelIdSignal.value = null;
-      versionIdSignal.value = null;
+      disposeViewerLoader();
+      disposeViewerConfig();
       model.dispose();
       setBimModel(null);
     };

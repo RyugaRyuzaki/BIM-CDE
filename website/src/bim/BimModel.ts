@@ -5,6 +5,7 @@ import {
   FileLoaderProgress,
   IfcStreamerComponent,
   IfcTilerComponent,
+  MapBoxComponent,
   RoomComponent,
 } from "./src";
 import {IRoomConfig} from "./src/RoomComponent/types";
@@ -12,6 +13,8 @@ import {Socket} from "socket.io-client";
 import {IRoomMember} from "@/types/room";
 import {modelLoadingSignal, spinnerSignal} from "@stores/viewer/loader";
 import {setNotify} from "@components/Notify/baseNotify";
+import {effect} from "@preact/signals-react";
+import {mapBoxSignal} from "@stores/viewer/config";
 /**
  *
  */
@@ -22,12 +25,47 @@ export class BimModel implements OBC.Disposable {
 
   components!: OBC.Components;
 
+  private container3D: HTMLDivElement = this.createContainer();
+  private containerMapBox: HTMLDivElement = this.createContainer();
+
+  set mapBox(mapBox: boolean) {
+    const mapBoxComponent = this.components.get(MapBoxComponent);
+    if (!this.container3D || !this.containerMapBox || !mapBoxComponent) return;
+    if (mapBox) {
+      if (!mapBoxComponent.isSetup) mapBoxComponent.setup();
+      this.container.appendChild(this.containerMapBox);
+      this.container3D.remove();
+      mapBoxComponent.onResize();
+    } else {
+      this.container.appendChild(this.container3D);
+      this.containerMapBox.remove();
+    }
+  }
   /**
    *
    */
   constructor(private container: HTMLDivElement) {
-    this.components = new OBC.Components();
+    this.init();
+    effect(() => {
+      this.mapBox = mapBoxSignal.value;
+    });
+  }
+  //
+  async dispose() {
+    this.container3D?.remove();
+    (this.container3D as any) = null;
+    this.containerMapBox?.remove();
+    (this.containerMapBox as any) = null;
+    this.loaderProgress.dispose();
+    (this.loaderProgress as any) = null;
+    (this.container as any) = null;
+    this.components?.dispose();
+    this.onDisposed.trigger(this);
+    this.onDisposed.reset();
+  }
 
+  private init() {
+    this.components = new OBC.Components();
     const worlds = this.components.get(OBC.Worlds);
 
     const world = worlds.create<
@@ -43,7 +81,7 @@ export class BimModel implements OBC.Disposable {
 
     world.renderer = new OBF.PostproductionRenderer(
       this.components,
-      this.container
+      this.container3D
     );
     const {postproduction, three} = world.renderer;
 
@@ -71,6 +109,11 @@ export class BimModel implements OBC.Disposable {
     const roomComponent = this.components.get(RoomComponent);
     roomComponent.enabled = true;
     roomComponent.world = world;
+
+    /** ====== MapBoxComponent ======= **/
+    const mapBoxComponent = this.components.get(MapBoxComponent);
+    mapBoxComponent.enabled = true;
+    mapBoxComponent.container = this.containerMapBox;
 
     /** ====== IfcTilerComponent ======= **/
     const ifcTilerComponent = this.components.get(IfcTilerComponent);
@@ -114,14 +157,6 @@ export class BimModel implements OBC.Disposable {
       }
     });
   }
-  //
-  async dispose() {
-    this.loaderProgress.dispose();
-    (this.loaderProgress as any) = null;
-    this.components?.dispose();
-    this.onDisposed.trigger(this);
-    this.onDisposed.reset();
-  }
   loadModel = async () => {
     try {
       modelLoadingSignal.value = true;
@@ -153,5 +188,11 @@ export class BimModel implements OBC.Disposable {
   uploadServer = async () => {};
   initRoom(config: IRoomConfig, socket: Socket, me: IRoomMember) {
     this.components.get(RoomComponent).init(config, socket, me);
+  }
+
+  private createContainer() {
+    const container = document.createElement("div");
+    container.className = "relative h-full w-full overflow-hidden";
+    return container;
   }
 }

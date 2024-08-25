@@ -7,7 +7,7 @@ const ProjectViewer = lazy(() => import("@pages/viewer/ProjectViewer"));
 export const viewerPages: IViewerLink[] = [
   {
     title: "Project",
-    path: "/viewer",
+    path: "/viewer/project",
     Component: ProjectViewer,
     uuid: MathUtils.generateUUID(),
   },
