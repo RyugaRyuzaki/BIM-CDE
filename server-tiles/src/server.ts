@@ -1,5 +1,6 @@
 import os from "os";
 import express, {Express} from "express";
+import {LooseAuthProp} from "@clerk/clerk-sdk-node";
 import cors from "cors";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
@@ -7,6 +8,13 @@ import morgan from "morgan";
 import {ErrorHandler} from "./config/ErrorHandler";
 import {dbConnect} from "./db";
 import route from "./route";
+
+// define clerk type
+declare global {
+  namespace Express {
+    interface Request extends LooseAuthProp {}
+  }
+}
 
 const app: Express = express();
 const port = process.env.PORT;
@@ -21,16 +29,11 @@ morgan.token("ram", function (req, res) {
 app.use(
   morgan(":method :url :status :response-time ms - :remote-addr - RAM: :ram")
 );
+
 app.use(cors());
 app.use(bodyParser.urlencoded({extended: false, limit: "50mb"}));
-app.use(bodyParser.json({limit: "50mb"}));
 app.use(cookieParser());
-app.use(express.json());
 app.use(express.urlencoded({extended: false}));
-app.get("/", (_req, res) => {
-  console.log(port);
-  res.status(200).json("OK");
-});
 
 app.use("/api", route);
 app.use(ErrorHandler);

@@ -4,7 +4,7 @@ import {EmojiPicker} from "./EmojiPicker";
 import {Button} from "@/components/ui/button";
 import {ThumbsUp} from "lucide-react";
 import {Socket} from "socket.io-client";
-import {memberSignal} from "@stores/viewer/member";
+import {memberSignal} from "@bim/signals/member";
 const ChatBottom = ({roomId, socket}: {roomId: string; socket: Socket}) => {
   const [message, setMessage] = useState<string>("");
   const inputRef = useRef<HTMLTextAreaElement>(null);

@@ -1,6 +1,5 @@
 import {relations, sql} from "drizzle-orm";
-import {varchar, pgTable, uuid} from "drizzle-orm/pg-core";
-import {users} from "./users";
+import {varchar, pgTable, uuid, integer} from "drizzle-orm/pg-core";
 import {projects} from "./projects";
 
 /**
@@ -11,22 +10,14 @@ export const models = pgTable("models", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   name: varchar("name", {length: 255}).notNull(),
-  versionId: uuid("version_id")
-    .notNull()
-    .default(sql`gen_random_uuid()`),
+  versionId: uuid("version_id").notNull(),
   projectId: uuid("project_id").references(() => projects.id),
-  ownerHistory: uuid("owner_history").references(() => users.id),
 });
-export const modelRelations = relations(models, ({one}) => ({
+
+export const modelRelations = relations(models, ({one, many}) => ({
   // one model belong one project
   project: one(projects, {
     fields: [models.projectId],
     references: [projects.id],
-  }),
-
-  // one model belong one user
-  owner: one(users, {
-    fields: [models.ownerHistory],
-    references: [users.id],
   }),
 }));

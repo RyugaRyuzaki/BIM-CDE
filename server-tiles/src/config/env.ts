@@ -12,6 +12,11 @@ const EnvSchema = z.object({
   EXP_ACCESS_TOKEN: z.string(),
   REFRESH_TOKEN: z.string(),
   EXP_REFRESH_TOKEN: z.string(),
+  CLERK_WEBHOOK_SECRET_KEY: z.string(),
+  REDIS_HOST: z.string(),
+  REDIS_PORT: z.string(),
+  CLERK_SECRET_KEY: z.string(),
+  CLERK_PUBLISHABLE_KEY: z.string(),
 });
 try {
   EnvSchema.parse(process.env);

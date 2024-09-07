@@ -20,7 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@components/ui/tooltip";
-import {modelIdSignal, versionIdSignal} from "@stores/viewer/loader";
+import {modelIdSignal, versionIdSignal} from "@bim/signals/loader";
 
 const formSchema = z.object({
   modelId: z.string().min(3, {

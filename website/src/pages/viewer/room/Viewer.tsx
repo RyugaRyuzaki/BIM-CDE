@@ -9,7 +9,7 @@ import {
   askedControlMemberSignal,
   controlledMemberSignal,
   memberSignal,
-} from "@stores/viewer/member";
+} from "@bim/signals/member";
 import {IoMdClose} from "react-icons/io";
 import {Button} from "@/components/ui/button";
 import {AskControlNotify} from "@components/Notify/ControlNotify";

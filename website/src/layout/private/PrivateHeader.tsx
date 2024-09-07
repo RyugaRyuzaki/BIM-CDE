@@ -3,7 +3,7 @@ import HeaderMenu from "@layout/components/HeaderMenu";
 import PrivateAvatar from "./PrivateAvatar";
 import RoomHeader from "./RoomHeader";
 import {useSignals} from "@preact/signals-react/runtime";
-import {isMemberJoinSignal, memberSignal} from "@stores/viewer/member";
+import {isMemberJoinSignal, memberSignal} from "@bim/signals/member";
 
 const PrivateHeader = () => {
   useSignals();

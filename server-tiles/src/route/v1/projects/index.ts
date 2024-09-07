@@ -1,19 +1,11 @@
 import {Router} from "express";
-import {projectController, userController} from "../../../controller";
+
+import {projectController} from "../../../controller";
 
 const route = Router();
-route.use(userController.authorization);
 route.get("", projectController.read);
 route.get("/:id", projectController.findById);
-route.post("", userController.authPermissionProject, projectController.create);
-route.put(
-  "/:id",
-  userController.authPermissionProject,
-  projectController.update
-);
-route.delete(
-  "/:id",
-  userController.authPermissionProject,
-  projectController.delete
-);
+route.post("", projectController.create);
+route.put("/:id", projectController.update);
+route.delete("/:id", projectController.delete);
 export default route;

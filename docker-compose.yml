@@ -1,0 +1,30 @@
+version: "3.9"
+services:
+  redis:
+    image: redis:latest
+    ports:
+      - ${REDIS_PORT}:${REDIS_PORT}
+    restart: unless-stopped
+    # volumes:
+    #   - redis_data:/data
+
+  postgres:
+    container_name: postgres_container
+    image: postgres:alpine
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    restart: unless-stopped
+
+# volumes:
+#   redis_data:
+#     driver: local
+#     driver_opts:
+#       type: none
+#       o: bind
+#       device: ./volume/data/redis

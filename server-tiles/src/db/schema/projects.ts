@@ -1,14 +1,6 @@
 import {relations, sql} from "drizzle-orm";
 
-import {
-  varchar,
-  serial,
-  pgTable,
-  uuid,
-  unique,
-  primaryKey,
-} from "drizzle-orm/pg-core";
-import {users} from "./users";
+import {varchar, pgTable, uuid, index} from "drizzle-orm/pg-core";
 import {models} from "./models";
 
 /**
@@ -22,51 +14,15 @@ export const projects = pgTable(
       .default(sql`gen_random_uuid()`),
     name: varchar("name", {length: 255}).notNull(),
     address: varchar("address", {length: 255}),
+    userId: varchar("user_id", {length: 255}).notNull(),
   },
   (t) => ({
-    unq: unique().on(t.name),
+    userIdx: index("user_id_idx").on(t.userId),
   })
 );
-/**
- *
- */
-export const projectMembers = pgTable(
-  "projectMembers",
-  {
-    projectId: uuid("project_id")
-      .references(() => projects.id, {onDelete: "cascade"})
-      .notNull(),
-    memberId: uuid("member_id")
-      .references(() => users.id, {onDelete: "cascade"})
-      .notNull(),
-    role: varchar("role", {
-      length: 255,
-      enum: ["manager", "designer", "visiter"],
-    })
-      .notNull()
-      .default("designer"),
-  },
-  (t) => ({
-    pk: primaryKey({columns: [t.projectId, t.memberId]}),
-  })
-);
-
-export const userRelations = relations(users, ({many}) => ({
-  projects: many(projectMembers),
-  models: many(models),
-}));
 /**
  *
  */
 export const projectRelations = relations(projects, ({many}) => ({
-  members: many(projectMembers),
   models: many(models),
-}));
-
-export const projectMemberRelations = relations(projectMembers, ({one}) => ({
-  project: one(projects, {
-    fields: [projectMembers.projectId],
-    references: [projects.id],
-  }),
-  user: one(users, {fields: [projectMembers.memberId], references: [users.id]}),
 }));

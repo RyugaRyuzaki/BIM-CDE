@@ -9,7 +9,7 @@ import {
 import {FaUpload} from "react-icons/fa";
 import {Label} from "@components/ui/label";
 import {useSignals} from "@preact/signals-react/runtime";
-import {modelLoadingSignal} from "@stores/viewer/loader";
+import {modelLoadingSignal} from "@bim/signals/loader";
 const LoadModel = ({handleOpenFile}: {handleOpenFile: () => void}) => {
   useSignals();
 
@@ -29,7 +29,7 @@ const LoadModel = ({handleOpenFile}: {handleOpenFile: () => void}) => {
               disabled={modelLoadingSignal.value}
             >
               <FaUpload className="text-white" />
-              <Label className="mx-2">Open .ifc</Label>
+              <Label className="mx-2">Upload .ifc</Label>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right" className="text-white bg-slate-900">

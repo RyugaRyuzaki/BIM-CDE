@@ -8,7 +8,7 @@ import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {Checkbox} from "@/components/ui/checkbox";
 import noneAvatar from "@assets/img/none-avatar.jpg";
 import {IRoomMember} from "@/types/room";
-import {memberSignal, setMember} from "@stores/viewer/member";
+import {memberSignal, setMember} from "@bim/signals/member";
 const RoomCredential = () => {
   const nameId = useId();
   const rememberId = useId();

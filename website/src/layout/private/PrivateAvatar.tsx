@@ -1,4 +1,5 @@
-import React, {lazy} from "react";
+"use client";
+
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import {MdOutlineArrowDropDown} from "react-icons/md";
 import {
@@ -10,11 +11,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import noneAvatar from "@assets/img/none-avatar.jpg";
+import {useClerk, useUser} from "@clerk/clerk-react";
+import {useNavigate} from "react-router";
 const PrivateAvatar = () => {
+  const {signOut} = useClerk();
+  const navigate = useNavigate();
+  const {user} = useUser();
   return (
     <div className="my-auto mx-2 flex justify-start">
       <Avatar className="my-auto mx-2">
-        <AvatarImage src={noneAvatar} alt="@shadcn" />
+        <AvatarImage
+          src={user ? user.imageUrl : noneAvatar}
+          alt="@openbimvietnam"
+        />
         <AvatarFallback></AvatarFallback>
       </Avatar>
       <div className="my-auto">
@@ -23,12 +32,17 @@ const PrivateAvatar = () => {
             <MdOutlineArrowDropDown className="h-8 w-8" />
           </DropdownMenuTrigger>
           <DropdownMenuContent className="mt-4">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuLabel>Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Billing</DropdownMenuItem>
-            <DropdownMenuItem>Team</DropdownMenuItem>
-            <DropdownMenuItem>Subscription</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/user-profile")}>
+              Your Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/viewer/project")}>
+              Your Project
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => signOut({redirectUrl: "/signIn"})}>
+              SignOut
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

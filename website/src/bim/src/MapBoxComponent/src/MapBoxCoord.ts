@@ -47,7 +47,7 @@ export class MapBoxCoord {
       .multiply(rotationZ);
   }
 
-  private _center: [number, number] = [8.5523926, 47.4133122];
+  private _center: [number, number] = [106.86157286167146, 10.944230782859504];
 
   set center(center: [number, number]) {
     this._center = [...center];

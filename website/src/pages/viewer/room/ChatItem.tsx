@@ -3,7 +3,7 @@ import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar";
 import noneAvatar from "@assets/img/none-avatar.jpg";
 import {IRoomMember} from "@/types/room";
-import {memberSignal} from "@stores/viewer/member";
+import {memberSignal} from "@bim/signals/member";
 import {Separator} from "@/components/ui/separator";
 const ChatItem = ({
   member,

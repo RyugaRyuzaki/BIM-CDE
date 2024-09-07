@@ -2,8 +2,7 @@ import {Link} from "react-router-dom";
 import {GiHamburgerMenu} from "react-icons/gi";
 //@ts-ignore
 import {ReactComponent as Logo} from "@assets/logo.svg";
-
-import {bimRouteSignal} from "@stores/viewer/config";
+import {bimRouteSignal} from "@bim/signals/config";
 import {useSignals} from "@preact/signals-react/runtime";
 import ToggleView from "./ToggleView";
 const HeaderMenu = () => {
@@ -24,9 +23,11 @@ const HeaderMenu = () => {
         </button>
       </div>
       {bimRouteSignal.value && (
-        <div className="my-auto flex justify-start mx-3">
-          <ToggleView />
-        </div>
+        <>
+          <div className="my-auto flex justify-start mx-3">
+            <ToggleView />
+          </div>
+        </>
       )}
     </div>
   );

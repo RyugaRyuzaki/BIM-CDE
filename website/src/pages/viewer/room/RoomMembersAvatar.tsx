@@ -1,7 +1,7 @@
 import noneAvatar from "@assets/img/none-avatar.jpg";
 import {MeetingItem} from "react-chat-elements";
 import {IRoomParticipant} from "@/types/room";
-import {roomMembersSignal} from "@stores/viewer/member";
+import {roomMembersSignal} from "@bim/signals/member";
 import {useSignals} from "@preact/signals-react/runtime";
 const RoomMembersAvatar = ({handleJoinRoom}: {handleJoinRoom: () => void}) => {
   useSignals();

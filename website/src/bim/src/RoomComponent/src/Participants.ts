@@ -20,7 +20,7 @@ import {
   memberStatusSignal,
   orientedMemberSignal,
   roomMembersSignal,
-} from "@stores/viewer/member";
+} from "@bim/signals/member";
 import {setNotify} from "@components/Notify/baseNotify";
 
 export class Participants implements OBC.Disposable {

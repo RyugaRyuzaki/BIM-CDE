@@ -2,6 +2,7 @@ import * as THREE from "three";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
 import {
+  DxfComponent,
   FileLoaderProgress,
   IfcStreamerComponent,
   IfcTilerComponent,
@@ -11,10 +12,23 @@ import {
 import {IRoomConfig} from "./src/RoomComponent/types";
 import {Socket} from "socket.io-client";
 import {IRoomMember} from "@/types/room";
-import {modelLoadingSignal, spinnerSignal} from "@stores/viewer/loader";
+import {
+  disposeViewerLoader,
+  modelLoadingSignal,
+  spinnerSignal,
+} from "@bim/signals/loader";
 import {setNotify} from "@components/Notify/baseNotify";
 import {effect} from "@preact/signals-react";
-import {mapBoxSignal} from "@stores/viewer/config";
+import {
+  cameraModeSignal,
+  disposeViewerConfig,
+  disposeViewerSignals,
+  mapBoxSignal,
+  shadowSceneSignal,
+} from "@bim/signals";
+
+import {Fragment} from "@thatopen/fragments";
+import {IModelTree} from "./types";
 /**
  *
  */
@@ -24,34 +38,36 @@ export class BimModel implements OBC.Disposable {
   private loaderProgress = new FileLoaderProgress();
 
   components!: OBC.Components;
-
+  worldGrid!: OBC.SimpleGrid;
   private container3D: HTMLDivElement = this.createContainer();
+
   private containerMapBox: HTMLDivElement = this.createContainer();
 
   set mapBox(mapBox: boolean) {
+    if (!this.components) return;
     const mapBoxComponent = this.components.get(MapBoxComponent);
     if (!this.container3D || !this.containerMapBox || !mapBoxComponent) return;
     if (mapBox) {
-      if (!mapBoxComponent.isSetup) mapBoxComponent.setup();
-      this.container.appendChild(this.containerMapBox);
       this.container3D.remove();
+      this.container.appendChild(this.containerMapBox);
       mapBoxComponent.onResize();
     } else {
-      this.container.appendChild(this.container3D);
       this.containerMapBox.remove();
+      this.container.appendChild(this.container3D);
     }
+    if (this.worldGrid) this.worldGrid.visible = !mapBox;
   }
+
   /**
    *
    */
   constructor(private container: HTMLDivElement) {
     this.init();
-    effect(() => {
-      this.mapBox = mapBoxSignal.value;
-    });
   }
   //
   async dispose() {
+    console.log("dispose");
+    disposeViewerSignals();
     this.container3D?.remove();
     (this.container3D as any) = null;
     this.containerMapBox?.remove();
@@ -59,25 +75,27 @@ export class BimModel implements OBC.Disposable {
     this.loaderProgress.dispose();
     (this.loaderProgress as any) = null;
     (this.container as any) = null;
+    this.components?.get(OBC.Worlds).dispose();
     this.components?.dispose();
+    (this.components as any) = null;
     this.onDisposed.trigger(this);
     this.onDisposed.reset();
   }
 
   private init() {
     this.components = new OBC.Components();
+    this.components.init();
+
     const worlds = this.components.get(OBC.Worlds);
 
     const world = worlds.create<
-      OBC.SimpleScene,
+      OBC.ShadowedScene,
       OBC.OrthoPerspectiveCamera,
       OBF.PostproductionRenderer
     >();
     world.name = "Main";
 
-    world.scene = new OBC.SimpleScene(this.components);
-    world.scene.setup();
-    world.scene.three.background = null;
+    world.scene = new OBC.ShadowedScene(this.components);
 
     world.renderer = new OBF.PostproductionRenderer(
       this.components,
@@ -90,17 +108,24 @@ export class BimModel implements OBC.Disposable {
 
     world.camera = new OBC.OrthoPerspectiveCamera(this.components);
 
-    const worldGrid = this.components.get(OBC.Grids).create(world);
-    worldGrid.material.uniforms.uColor.value = new THREE.Color(0x424242);
-    worldGrid.material.uniforms.uSize1.value = 2;
-    worldGrid.material.uniforms.uSize2.value = 8;
+    world.scene.setup({
+      shadows: {
+        cascade: 1,
+        resolution: 1024,
+      },
+    });
+    world.scene.three.background = null;
 
-    this.components.init();
+    this.worldGrid = this.components.get(OBC.Grids).create(world);
+    this.worldGrid.material.uniforms.uColor.value = new THREE.Color(0x424242);
+    this.worldGrid.material.uniforms.uSize1.value = 2;
+    this.worldGrid.material.uniforms.uSize2.value = 8;
 
     postproduction.enabled = true;
-    postproduction.customEffects.excludedMeshes.push(worldGrid.three);
+    postproduction.customEffects.excludedMeshes.push(this.worldGrid.three);
     postproduction.setPasses({custom: true, ao: true, gamma: true});
     postproduction.customEffects.lineColor = 0x17191c;
+    postproduction.enabled = false;
 
     const highlighter = this.components.get(OBF.Highlighter);
     highlighter.setup({world});
@@ -110,10 +135,17 @@ export class BimModel implements OBC.Disposable {
     roomComponent.enabled = true;
     roomComponent.world = world;
 
+    /** ====== DxfComponent ======= **/
+    const dxfComponent = this.components.get(DxfComponent);
+    dxfComponent.enabled = true;
+    dxfComponent.world = world;
+
     /** ====== MapBoxComponent ======= **/
     const mapBoxComponent = this.components.get(MapBoxComponent);
     mapBoxComponent.enabled = true;
     mapBoxComponent.container = this.containerMapBox;
+    mapBoxComponent.world = world;
+    mapBoxComponent.setup();
 
     /** ====== IfcTilerComponent ======= **/
     const ifcTilerComponent = this.components.get(IfcTilerComponent);
@@ -128,9 +160,6 @@ export class BimModel implements OBC.Disposable {
 
     world.camera.controls.restThreshold = 0.25;
 
-    world.camera.controls.addEventListener("rest", async () => {
-      // await world.scene.updateShadows();
-    });
     const fragments = this.components.get(OBC.FragmentsManager);
     const indexer = this.components.get(OBC.IfcRelationsIndexer);
     const classifier = this.components.get(OBC.Classifier);
@@ -141,13 +170,16 @@ export class BimModel implements OBC.Disposable {
         await indexer.process(model);
         classifier.byEntity(model);
       }
-      for (const fragment of model.items) {
-        world.meshes.add(fragment.mesh);
-      }
-      world.scene.three.add(model);
       spinnerSignal.value = false;
     });
-
+    ifcStreamerComponent.onFragmentsLoaded.add(
+      async (fragments: Fragment[]) => {
+        for (const {mesh} of fragments) {
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+        }
+      }
+    );
     fragments.onFragmentsDisposed.add(({fragmentIDs}) => {
       for (const fragmentID of fragmentIDs) {
         const mesh = [...world.meshes].find((mesh) => mesh.uuid === fragmentID);
@@ -156,8 +188,29 @@ export class BimModel implements OBC.Disposable {
         }
       }
     });
+    //
+    effect(() => {
+      this.mapBox = mapBoxSignal.value;
+    });
+    effect(() => {
+      if (!this.components) return;
+      world.scene.shadowsEnabled = shadowSceneSignal.value;
+      postproduction.enabled = !shadowSceneSignal.value;
+      (async () => {
+        if (shadowSceneSignal.value) {
+          await world.scene.updateShadows();
+        }
+      })();
+    });
+    effect(() => {
+      if (!this.components) return;
+      const mode = cameraModeSignal.value;
+      if (!world.camera) return;
+      world.camera.set(mode);
+    });
   }
-  loadModel = async () => {
+
+  loadModel = async (treeItem: IModelTree) => {
     try {
       modelLoadingSignal.value = true;
 
@@ -167,7 +220,7 @@ export class BimModel implements OBC.Disposable {
           {
             description: "Files",
             accept: {
-              "application/octet-stream": [".ifc", ".IFC"],
+              "application/octet-stream": [".ifc", ".IFC", ".dxf"],
             },
           },
         ],
@@ -175,12 +228,13 @@ export class BimModel implements OBC.Disposable {
 
       const [fileHandle] = await window.showOpenFilePicker(options);
       const file = await fileHandle.getFile();
-      const fileName = file.name;
       const ifcTilerComponent = this.components.get(IfcTilerComponent);
-      this.loaderProgress.loadFile(file, async (buffer: Uint8Array) => {
-        await ifcTilerComponent.streamIfcFile(buffer, fileName);
-        modelLoadingSignal.value = false;
-      });
+      this.loaderProgress.loadIfcFile(
+        file,
+        async ( buffer: Uint8Array, name: string ) => {
+        await  ifcTilerComponent.streamIfcFile(buffer,name,treeItem)
+        }
+      );
     } catch (err: any) {
       setNotify(err.message, false);
     }

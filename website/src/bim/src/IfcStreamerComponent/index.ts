@@ -2,6 +2,25 @@ import * as THREE from "three";
 import * as FRAG from "@thatopen/fragments";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
+import axios from "axios";
+import {IfcTilerComponent} from "../IfcTilerComponent";
+export interface StreamPropertiesSettings {
+  /**
+   * Map of identifiers to numbers.
+   */
+  ids: {[id: number]: number};
+
+  /**
+   * Map of types to arrays of numbers.
+   */
+  types: {[type: number]: number[]};
+
+  indexesFile: string;
+  /**
+   * Identifier of the indexes file.
+   */
+  relationsMap: OBC.RelationsMap;
+}
 /**
  * The IfcStreamer component is responsible for managing and streaming tiled IFC data. It provides methods for loading, removing, and managing IFC models, as well as handling visibility and caching. 📕 [Tutorial](https://docs.thatopen.com/Tutorials/Components/Front/IfcStreamer). 📘 [API](https://docs.thatopen.com/api/@thatopen/components-front/classes/IfcStreamer).
  */
@@ -51,29 +70,11 @@ export class IfcStreamerComponent
    */
   maxRamTime = 5000;
 
-  /**
-   * Flag indicating whether to use the local cache for storing geometry files.
-   */
-  useCache = true;
-
-  dbCleaner: OBF.StreamerDbCleaner;
-
-  fetch = async (url: string) => {
-    return fetch(url);
-  };
-
   private _culler: OBF.GeometryCullerRenderer | null = null;
 
   private _world: OBC.World | null = null;
 
-  private _ramCache = new Map<
-    string,
-    {data: FRAG.StreamedGeometries; time: number}
-  >();
-
-  private _fileCache = new OBF.StreamFileDatabase();
-
-  private _url: string | null = null;
+  private _ramCache = new Map<string, FRAG.StreamedGeometries>();
 
   private _isDisposing = false;
 
@@ -98,26 +99,6 @@ export class IfcStreamerComponent
   });
 
   /**
-   * The URL of the data source for the streaming service.
-   * It must be set before using the streaming service.
-   * If not set, an error will be thrown when trying to access the URL.
-   */
-  get url() {
-    if (!this._url) {
-      throw new Error("url must be set before using the streaming service!");
-    }
-    return this._url;
-  }
-
-  /**
-   * Sets the URL of the data source for the streaming service.
-   * @param value - The new URL to be set.
-   */
-  set url(value: string) {
-    this._url = value;
-  }
-
-  /**
    * The world in which the fragments will be displayed.
    * It must be set before using the streaming service.
    * If not set, an error will be thrown when trying to access the world.
@@ -128,7 +109,6 @@ export class IfcStreamerComponent
     }
     return this._world;
   }
-
   /**
    * Sets the world in which the fragments will be displayed.
    * @param world - The new world to be set.
@@ -146,6 +126,17 @@ export class IfcStreamerComponent
         this.setMeshVisibility(toHide, false);
       }
     );
+  }
+
+  /**
+   * The culler used for managing and rendering the fragments.
+   * It is automatically created when the world is set.
+   */
+  get culler() {
+    if (!this._culler) {
+      throw new Error("You must set a world before using the streamer!");
+    }
+    return this._culler;
   }
 
   set setupEvent(enabled: boolean) {
@@ -169,32 +160,18 @@ export class IfcStreamerComponent
     }
   }
 
-  private updateCuller = () => {
-    if (!this._culler) return;
-    this._culler.needsUpdate = true;
-  };
-
-  /**
-   * The culler used for managing and rendering the fragments.
-   * It is automatically created when the world is set.
-   */
-  get culler() {
-    if (!this._culler) {
-      throw new Error("You must set a world before using the streamer!");
+  private updateCuller = async () => {
+    if (this._culler) this._culler.needsUpdate = true;
+    if (this.world) {
+      const shadow = this.world.scene as OBC.ShadowedScene;
+      await shadow.updateShadows();
     }
-    return this._culler;
-  }
+  };
+  fromServer = false;
 
   constructor(components: OBC.Components) {
     super(components);
     this.components.add(IfcStreamerComponent.uuid, this);
-    this.dbCleaner = new OBF.StreamerDbCleaner(this._fileCache);
-
-    const fragments = this.components.get(OBC.FragmentsManager);
-    fragments.onFragmentsDisposed.add(this.disposeStreamedGroup);
-
-    // const hardlyGeometry = new THREE.BoxGeometry();
-    // this._hardlySeenGeometries = new THREE.InstancedMesh();
   }
 
   /** {@link OBC.Disposable.dispose} */
@@ -202,11 +179,8 @@ export class IfcStreamerComponent
     this._isDisposing = true;
     this.onFragmentsLoaded.reset();
     this.onFragmentsDeleted.reset();
-
+    this.fromServer = false;
     this._ramCache.clear();
-
-    const fragments = this.components.get(OBC.FragmentsManager);
-    fragments.onFragmentsDisposed.remove(this.disposeStreamedGroup);
 
     this.models = {};
     this._geometryInstances = {};
@@ -222,7 +196,6 @@ export class IfcStreamerComponent
     this.onDisposed.trigger(IfcStreamerComponent.uuid);
     this.onDisposed.reset();
     this._isDisposing = false;
-    console.log("disposed IfcStreamerComponent");
   }
 
   /**
@@ -233,24 +206,78 @@ export class IfcStreamerComponent
    * @param properties - Optional properties for the new fragment group.
    * @returns The newly loaded fragment group.
    */
-  async load(
+  async loadFromLocal(
     settings: OBF.StreamLoaderSettings,
+    groupBuffer: Uint8Array,
     coordinate: boolean,
-    properties?: OBF.StreamPropertiesSettings
+    properties?: FRAG.IfcProperties
   ) {
-    const {assets, geometries, globalDataFileId} = settings;
-
-    const groupUrl = this.url + globalDataFileId;
-    const groupData = await this.fetch(groupUrl);
-    const groupArrayBuffer = await groupData.arrayBuffer();
-    const groupBuffer = new Uint8Array(groupArrayBuffer);
+    const {assets, geometries} = settings;
     const fragments = this.components.get(OBC.FragmentsManager);
-    const group = fragments.load(groupBuffer, {coordinate, isStreamed: true});
-
-    group.name = globalDataFileId.replace("-processed-global", "");
-
+    const group = fragments.load(groupBuffer, {coordinate, properties});
     this.world.scene.three.add(group);
+    const {opaque, transparent} = group.geometryIDs;
+    for (const [geometryID, key] of opaque) {
+      const fragID = group.keyFragments.get(key);
+      if (fragID === undefined) {
+        throw new Error("Malformed fragments group!");
+      }
+      this.fragIDData.set(fragID, [group, geometryID, new Set()]);
+    }
+    for (const [geometryID, key] of transparent) {
+      const fragID = group.keyFragments.get(key);
+      if (fragID === undefined) {
+        throw new Error("Malformed fragments group!");
+      }
+      this.fragIDData.set(fragID, [group, Math.abs(geometryID), new Set()]);
+    }
 
+    this.culler.add(group.uuid, assets, geometries);
+    this.models[group.uuid] = {assets, geometries};
+    const instances: OBF.StreamedInstances = new Map();
+
+    for (const asset of assets) {
+      const id = asset.id;
+      for (const {transformation, geometryID, color} of asset.geometries) {
+        if (!instances.has(geometryID)) {
+          instances.set(geometryID, []);
+        }
+        const current = instances.get(geometryID);
+        if (!current) {
+          throw new Error("Malformed instances");
+        }
+        current.push({id, transformation, color});
+      }
+    }
+
+    this._geometryInstances[group.uuid] = instances;
+
+    this.culler.updateTransformations(group.uuid);
+    this.culler.needsUpdate = true;
+
+    return group;
+  }
+  /**
+   * Loads a new fragment group into the scene using streaming.
+   *
+   * @param settings - The settings for the new fragment group.
+   * @param coordinate - Whether to federate this model with the rest.
+   * @param properties - Optional properties for the new fragment group.
+   * @returns The newly loaded fragment group.
+   */
+  async loadFromServer(
+    settings: OBF.StreamLoaderSettings,
+    groupBuffer: Uint8Array,
+    coordinate: boolean,
+    serverUrl: string,
+    baseUrl: string,
+    properties?: StreamPropertiesSettings
+  ) {
+    const {assets, geometries} = settings;
+    const fragments = this.components.get(OBC.FragmentsManager);
+    const group = fragments.load(groupBuffer, {coordinate});
+    group.userData.serverUrl = serverUrl;
+    this.world.scene.three.add(group);
     const {opaque, transparent} = group.geometryIDs;
     for (const [geometryID, key] of opaque) {
       const fragID = group.keyFragments.get(key);
@@ -292,38 +319,23 @@ export class IfcStreamerComponent
       const types = new Map<number, number[]>();
 
       for (const id in properties.ids) {
-        const value = properties.ids[id];
-        const idNum = parseInt(id, 10);
-        ids.set(idNum, value);
+        ids.set(+id, properties.ids[id]);
       }
 
       for (const type in properties.types) {
-        const value = properties.types[type];
-        const idNum = parseInt(type, 10);
-        types.set(idNum, value);
+        types.set(+type, properties.types[type]);
       }
 
-      // TODO: Make this better when backend is ready
-      const propertiesFileID = globalDataFileId.replace(
-        "-global",
-        "-properties"
-      );
-
       group.streamSettings = {
-        baseUrl: this.url,
-        baseFileName: propertiesFileID,
         ids,
         types,
+        baseFileName: properties.indexesFile,
+        baseUrl,
       };
-
-      const {indexesFile} = properties;
-      const indexURL = this.url + indexesFile;
-      const fetched = await this.fetch(indexURL);
-      const rels = await fetched.text();
+      const {relationsMap} = properties;
       const indexer = this.components.get(OBC.IfcRelationsIndexer);
-      indexer.setRelationMap(group, indexer.getRelationsMapFromJSON(rels));
+      indexer.setRelationMap(group, relationsMap);
     }
-
     this.culler.updateTransformations(group.uuid);
     this.culler.needsUpdate = true;
 
@@ -334,15 +346,29 @@ export class IfcStreamerComponent
    * Removes a fragment group from the scene.
    *
    * @param modelID - The unique identifier of the fragment group to remove.
-   *
-   * @deprecated use OBC.FragmentsManager.disposeGroup instead.
    */
   remove(modelID: string) {
+    this._isDisposing = true;
+
     const fragments = this.components.get(OBC.FragmentsManager);
     const group = fragments.groups.get(modelID);
-    if (group) {
-      fragments.disposeGroup(group);
+    if (group === undefined) {
+      console.log("Group to delete not found.");
+      return;
     }
+
+    delete this.models[modelID];
+    delete this._geometryInstances[modelID];
+    delete this._loadedFragments[modelID];
+
+    const ids = group.keyFragments.values();
+    for (const id of ids) {
+      this.fragIDData.delete(id);
+    }
+
+    this.culler.remove(modelID);
+
+    this._isDisposing = false;
   }
 
   /**
@@ -406,63 +432,36 @@ export class IfcStreamerComponent
     this.culler.needsUpdate = true;
   }
 
-  /**
-   * Clears the local cache used for storing downloaded fragment files.
-   *
-   * @returns A Promise that resolves when the cache is cleared.
-   */
-  async clearCache() {
-    await this._fileCache.delete();
-  }
-
-  /**
-   * Sets or unsets the specified fragments as static. Static fragments are streamed once and then kept in memory.
-   *
-   * @param ids - The list of fragment IDs to make static.
-   * @param active - Whether these items should be static or not.
-   * @param culled - Whether these items should be culled or not. If undefined: active=true will set items as culled, while active=false will remove items from both the culled and unculled list.
-   */
-  async setStatic(ids: Iterable<string>, active: boolean, culled?: boolean) {
-    const staticGeometries: {[modelID: string]: Set<number>} = {};
-
-    for (const id of ids) {
-      const found = this.fragIDData.get(id);
-      if (!found) {
-        console.log(`Item not found: ${id}.`);
-        continue;
-      }
-
-      const [group, geometryID] = found;
-      const modelID = group.uuid;
-
-      if (!staticGeometries[modelID]) {
-        staticGeometries[modelID] = new Set<number>();
-      }
-
-      staticGeometries[modelID].add(geometryID);
-    }
-
-    if (active) {
-      const seen: {[modelID: string]: Map<number, Set<number>>} = {};
-      for (const modelID in staticGeometries) {
-        const map = new Map<number, Set<number>>();
-        map.set(1, staticGeometries[modelID]);
-        seen[modelID] = map;
-      }
-      // Load the static geometries, but don't show them
-      await this.loadFoundGeometries(seen, false);
-      await this.culler.addStaticGeometries(staticGeometries, culled);
-    } else {
-      this.culler.removeStaticGeometries(staticGeometries, culled);
-    }
-  }
-
-  private async loadFoundGeometries(
-    seen: {
-      [modelID: string]: Map<number, Set<number>>;
-    },
-    visible = true
+  private async getGeometryFile(
+    geometryFile: string,
+    modelID: string,
+    serverUrl?: string
   ) {
+    if (!this.fromServer) {
+      const ifcTileLoader = this.components.get(IfcTilerComponent);
+      const artifactModelData =
+        this.components.get(IfcTilerComponent).artifactModelData;
+      if (!artifactModelData || !artifactModelData[modelID]) return null;
+      const {streamedGeometryFiles} = artifactModelData[modelID];
+      return streamedGeometryFiles[geometryFile];
+    } else {
+      if (!serverUrl) return null;
+      try {
+        const res = await axios({
+          url: `${serverUrl}/${geometryFile}`,
+          method: "GET",
+          responseType: "arraybuffer",
+        });
+        return new Uint8Array(res.data);
+      } catch (error) {
+        return null;
+      }
+    }
+  }
+
+  private async loadFoundGeometries(seen: {
+    [modelID: string]: Map<number, Set<number>>;
+  }) {
     for (const modelID in seen) {
       if (this._isDisposing) return;
 
@@ -473,7 +472,7 @@ export class IfcStreamerComponent
         // Might happen when disposing
         return;
       }
-
+      const {serverUrl} = group.userData;
       const {geometries} = this.models[modelID];
 
       const files = new Map<string, number>();
@@ -498,50 +497,23 @@ export class IfcStreamerComponent
       const sortedFiles = Array.from(files).sort((a, b) => b[1] - a[1]);
 
       for (const [file] of sortedFiles) {
-        const url = this.url + file;
-
         // If this file is still in the ram, get it
-
-        if (!this._ramCache.has(url)) {
-          let bytes = new Uint8Array();
-
-          // If this file is in the local cache, get it
-          if (this.useCache) {
-            // Add or update this file to clean it up from indexedDB automatically later
-            this.dbCleaner.update(url);
-
-            const found = await this._fileCache.files.get(url);
-
-            if (found) {
-              bytes = found.file;
-            } else {
-              const fetched = await this.fetch(url);
-              const buffer = await fetched.arrayBuffer();
-              bytes = new Uint8Array(buffer);
-              // await this._fileCache.files.delete(url);
-              this._fileCache.files.add({file: bytes, id: url});
-            }
-          } else {
-            const fetched = await this.fetch(url);
-            const buffer = await fetched.arrayBuffer();
-            bytes = new Uint8Array(buffer);
+        if (!this._ramCache.has(file)) {
+          const bytes = await this.getGeometryFile(file, modelID, serverUrl);
+          if (bytes) {
+            const data = this.serializer.import(bytes);
+            this._ramCache.set(file, data);
           }
-
-          const data = this.serializer.import(bytes);
-          this._ramCache.set(url, {data, time: performance.now()});
         }
 
-        const result = this._ramCache.get(url);
+        const result = this._ramCache.get(file);
         if (!result) {
           continue;
         }
 
-        result.time = performance.now();
-
         const loaded: FRAG.Fragment[] = [];
-
         if (result) {
-          for (const [geometryID, {position, index, normal}] of result.data) {
+          for (const [geometryID, {position, index, normal}] of result) {
             if (this._isDisposing) return;
 
             if (!allIDs.has(geometryID)) continue;
@@ -582,25 +554,8 @@ export class IfcStreamerComponent
               }
             }
 
-            this.newFragment(
-              group,
-              geometryID,
-              geom,
-              transp,
-              true,
-              loaded,
-              visible
-            );
-
-            this.newFragment(
-              group,
-              geometryID,
-              geom,
-              opaque,
-              false,
-              loaded,
-              visible
-            );
+            this.newFragment(group, geometryID, geom, transp, true, loaded);
+            this.newFragment(group, geometryID, geom, opaque, false, loaded);
           }
         }
 
@@ -609,63 +564,48 @@ export class IfcStreamerComponent
         }
       }
 
-      const expiredIDs = new Set<string>();
-      const now = performance.now();
-      for (const [id, {time}] of this._ramCache) {
-        if (now - time > this.maxRamTime) {
-          expiredIDs.add(id);
-        }
-      }
-
-      for (const id of expiredIDs) {
-        this._ramCache.delete(id);
-      }
-
       // this._storageCache.close();
     }
   }
 
-  private async unloadLostGeometries(unseen: {[p: string]: Set<number>}) {
+  private async unloadLostGeometries(_unseen: {[p: string]: Set<number>}) {
     if (this._isDisposing) return;
 
-    const deletedFragments: FRAG.Fragment[] = [];
-    const fragments = this.components.get(OBC.FragmentsManager);
-    for (const modelID in unseen) {
-      const group = fragments.groups.get(modelID);
-      if (!group) {
-        throw new Error("Fragment group not found!");
-      }
+    // const deletedFragments: FRAG.Fragment[] = [];
+    // const fragments = this.components.get(OBC.FragmentsManager);
+    // for (const modelID in unseen) {
+    //   const group = fragments.groups.get(modelID);
+    //   if (!group) {
+    //     throw new Error("Fragment group not found!");
+    //   }
 
-      if (!this._loadedFragments[modelID]) {
-        continue;
-      }
+    //   if (!this._loadedFragments[modelID]) continue;
+    //   const loadedFrags = this._loadedFragments[modelID];
+    //   const geometries = unseen[modelID];
 
-      const loadedFrags = this._loadedFragments[modelID];
-      const geometries = unseen[modelID];
+    //   for (const geometryID of geometries) {
+    //     this.culler.removeFragment(group.uuid, geometryID);
 
-      for (const geometryID of geometries) {
-        this.culler.removeFragment(group.uuid, geometryID);
+    //     if (!loadedFrags[geometryID]) continue;
+    //     const frags = loadedFrags[geometryID];
+    //     for (const frag of frags) {
+    //       group.items.splice(group.items.indexOf(frag), 1);
+    //       deletedFragments.push(frag);
+    //     }
+    //     delete loadedFrags[geometryID];
+    //   }
+    // }
 
-        if (!loadedFrags[geometryID]) continue;
-        const frags = loadedFrags[geometryID];
-        for (const frag of frags) {
-          group.items.splice(group.items.indexOf(frag), 1);
-          deletedFragments.push(frag);
-        }
-        delete loadedFrags[geometryID];
-      }
-    }
+    // if (deletedFragments.length) {
+    //   this.onFragmentsDeleted.trigger(deletedFragments);
+    // }
 
-    if (deletedFragments.length) {
-      this.onFragmentsDeleted.trigger(deletedFragments);
-    }
-
-    for (const frag of deletedFragments) {
-      fragments.list.delete(frag.id);
-      this.world.meshes.delete(frag.mesh);
-      frag.mesh.material = [] as THREE.Material[];
-      frag.dispose(true);
-    }
+    // for (const frag of deletedFragments) {
+    //   fragments.list.delete(frag.id);
+    //   this.world.meshes.delete(frag.mesh);
+    //   frag.mesh.material = [] as THREE.Material[];
+    //   frag.dispose(true);
+    // }
   }
 
   private setMeshVisibility(
@@ -691,8 +631,7 @@ export class IfcStreamerComponent
     geometry: THREE.BufferGeometry,
     instances: OBF.StreamedInstance[],
     transparent: boolean,
-    result: FRAG.Fragment[],
-    visible: boolean
+    result: FRAG.Fragment[]
   ) {
     if (instances.length === 0) return;
     if (this._isDisposing) return;
@@ -702,6 +641,7 @@ export class IfcStreamerComponent
     const factor = transparent ? -1 : 1;
     const tranpsGeomID = geometryID * factor;
     const key = uuidMap.get(tranpsGeomID);
+
     if (key === undefined) {
       // throw new Error("Malformed fragment!");
       return;
@@ -720,7 +660,6 @@ export class IfcStreamerComponent
 
     const material = transparent ? this._baseMaterialT : this._baseMaterial;
     const fragment = new FRAG.Fragment(geometry, material, instances.length);
-    fragment.mesh.visible = visible;
 
     fragment.id = fragID;
     fragment.mesh.uuid = fragID;
@@ -779,29 +718,4 @@ export class IfcStreamerComponent
 
     result.push(fragment);
   }
-
-  private disposeStreamedGroup = (data: {
-    groupID: string;
-    fragmentIDs: string[];
-  }) => {
-    this._isDisposing = true;
-
-    const {groupID, fragmentIDs} = data;
-
-    if (!this.models[groupID]) {
-      return;
-    }
-
-    delete this.models[groupID];
-    delete this._geometryInstances[groupID];
-    delete this._loadedFragments[groupID];
-
-    for (const id of fragmentIDs) {
-      this.fragIDData.delete(id);
-    }
-
-    this.culler.remove(groupID);
-
-    this._isDisposing = false;
-  };
 }

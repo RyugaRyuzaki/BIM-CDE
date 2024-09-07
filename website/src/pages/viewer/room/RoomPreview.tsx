@@ -19,7 +19,7 @@ import {
   memberSignal,
   roomMembersSignal,
   streamSignal,
-} from "@stores/viewer/member";
+} from "@bim/signals/member";
 import {useSignalEffect, useSignals} from "@preact/signals-react/runtime";
 import Participant from "./Participant";
 import {peerHost, peerPORT} from "@api/core";

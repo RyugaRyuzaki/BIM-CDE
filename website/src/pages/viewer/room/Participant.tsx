@@ -8,7 +8,7 @@ import {
   memberSignal,
   memberStatusSignal,
   orientedMemberSignal,
-} from "@stores/viewer/member";
+} from "@bim/signals/member";
 import {IoIosFlash} from "react-icons/io";
 import {MdFollowTheSigns} from "react-icons/md";
 import {RiUserUnfollowLine} from "react-icons/ri";

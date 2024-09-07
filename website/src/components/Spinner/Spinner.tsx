@@ -1,7 +1,7 @@
 import "./spinner.css";
 //@ts-ignore
 import {ReactComponent as Logo} from "@assets/logo.svg";
-import {spinnerSignal} from "@stores/viewer/loader";
+import {spinnerSignal} from "@bim/signals/loader";
 import {useSignals} from "@preact/signals-react/runtime";
 
 const Spinner = () => {

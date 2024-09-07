@@ -3,7 +3,7 @@ import {Socket} from "socket.io-client";
 import {IRoomConfig} from "@bim/src/RoomComponent/types";
 import {Participants} from "./src";
 import {IRoomMember} from "@/types/room";
-import {memberSignal} from "@stores/viewer/member";
+import {memberSignal} from "@bim/signals/member";
 
 export class RoomComponent extends OBC.Component implements OBC.Disposable {
   /**

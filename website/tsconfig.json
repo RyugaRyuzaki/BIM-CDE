@@ -10,6 +10,7 @@
   ],
   "compilerOptions": {
     "types": [
+      "./typings",
       "@vitest/browser/matchers",
       "vitest/globals"
     ],

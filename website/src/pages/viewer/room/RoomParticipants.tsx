@@ -2,7 +2,7 @@ import {
   memberSignal,
   roomMembersSignal,
   streamSignal,
-} from "@stores/viewer/member";
+} from "@bim/signals/member";
 import Participant from "./Participant";
 import {useSignals} from "@preact/signals-react/runtime";
 import {IRoomMember, IRoomParticipant} from "@/types/room";

@@ -1,13 +1,16 @@
-import {memo, useRef} from "react";
+import {memo} from "react";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {BimModel} from "@bim/BimModel";
-import UploadForm from "./UploadForm";
 import LoadModel from "./LoadModel";
 import {useSignals} from "@preact/signals-react/runtime";
+import Settings from "./Settings";
+import ModelTree from "./ModelTree";
+import {IModelTree} from "@bim/types";
+import {modelTreeSignal} from "@bim/signals";
+import ProjectTree from "./ProjectTree";
 
 const LeftPanel = ({bimModel}: {bimModel: BimModel}) => {
   useSignals();
-  const settingRef = useRef<HTMLDivElement | null>(null);
 
   return (
     <Tabs defaultValue="Project" className="w-full h-full">
@@ -19,13 +22,21 @@ const LeftPanel = ({bimModel}: {bimModel: BimModel}) => {
         value="Project"
         className="relative h-[calc(100%-40px)] w-full overflow-hidden"
       >
-        <LoadModel handleOpenFile={bimModel.loadModel} />
+        <ProjectTree />
+
+        <LoadModel
+          handleOpenFile={() => {
+            // if (!modelTreeSignal.value) return;
+            // bimModel.loadModel(modelTreeSignal.value!);
+          }}
+        />
       </TabsContent>
       <TabsContent
         value="Settings"
         className="relative h-[calc(100%-40px)] w-full overflow-hidden"
-        ref={settingRef}
-      ></TabsContent>
+      >
+        <Settings />
+      </TabsContent>
     </Tabs>
   );
 };

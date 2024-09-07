@@ -3,6 +3,8 @@ import * as THREE from "three";
 import * as MAPBOX from "mapbox-gl";
 import {MapBoxCoord} from "./src";
 import {CSS2DRenderer} from "three/examples/jsm/renderers/CSS2DRenderer";
+import {IfcStreamerComponent} from "../IfcStreamerComponent";
+
 export interface IMapBoxConfig {
   pitch: number;
   bearing: number;
@@ -57,7 +59,52 @@ export class MapBoxComponent
   camera: THREE.PerspectiveCamera = new THREE.PerspectiveCamera();
   renderer!: THREE.WebGLRenderer;
   labelRenderer: CSS2DRenderer = new CSS2DRenderer();
-  private readonly scene: THREE.Scene = new THREE.Scene();
+  private _world: OBC.World | null = null;
+
+  /**
+   * The world in which the fragments will be displayed.
+   * It must be set before using the streaming service.
+   * If not set, an error will be thrown when trying to access the world.
+   */
+  get world() {
+    if (!this._world) {
+      throw new Error("You must set a world before using the streamer!");
+    }
+    return this._world;
+  }
+
+  /**
+   * Sets the world in which the fragments will be displayed.
+   * @param world - The new world to be set.
+   */
+  set world(world: OBC.World) {
+    this._world = world;
+  }
+  /**
+   *
+   */
+  set setupEvent(enabled: boolean) {
+    if (!this.map) return;
+    if (enabled) {
+      this.map.on("move", this.onUpdate);
+      this.map.on("rotate", this.onUpdate);
+      this.map.on("zoom", this.onUpdate);
+      this.map.on("moveend", this.onUpdate);
+    } else {
+      this.map.off("move", this.onUpdate);
+      this.map.off("rotate", this.onUpdate);
+      this.map.off("zoom", this.onUpdate);
+      this.map.off("moveend", this.onUpdate);
+    }
+  }
+  private onUpdate = async () => {
+    if (this.world) {
+      const shadow = this.world.scene as OBC.ShadowedScene;
+      await shadow.updateShadows();
+    }
+    const ifcStreamerComponent = this.components.get(IfcStreamerComponent);
+    ifcStreamerComponent.culler.needsUpdate = true;
+  };
   /**
    *
    * @param components
@@ -72,6 +119,7 @@ export class MapBoxComponent
    */
   async dispose() {
     this.isSetup = false;
+    this.setupEvent = false;
     this.map?.remove();
     (this.map as any) = null;
     (this.container as any) = null;
@@ -97,6 +145,7 @@ export class MapBoxComponent
     this.map.rotateTo(Math.PI / 2);
     this.addDefaultLayer();
     this.setupMap();
+    this.setupEvent = true;
     this.isSetup = true;
     this.onSetup.trigger();
   };
@@ -110,43 +159,41 @@ export class MapBoxComponent
         (layer) => layer.type === "symbol" && layer.layout["text-field"]
       ).id;
       //   // using box for all building
-      this.map!.addLayer(
-        {
-          id: "add-3d-buildings",
-          source: "composite",
-          "source-layer": "building",
-          filter: ["==", "extrude", "true"],
-          type: "fill-extrusion",
-          minzoom: 15,
-          paint: {
-            "fill-extrusion-color": "#aaa",
+      const layerBuilding = {
+        id: "add-3d-buildings",
+        source: "composite",
+        "source-layer": "building",
+        filter: ["==", "extrude", "true"],
+        type: "fill-extrusion",
+        minzoom: 15,
+        paint: {
+          "fill-extrusion-color": "#aaa",
 
-            // Use an 'interpolate' expression to
-            // add a smooth transition effect to
-            // the buildings as the user zooms in.
-            "fill-extrusion-height": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              15,
-              0,
-              15.05,
-              ["get", "height"],
-            ],
-            "fill-extrusion-base": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              15,
-              0,
-              15.05,
-              ["get", "min_height"],
-            ],
-            "fill-extrusion-opacity": 0.6,
-          },
+          // Use an 'interpolate' expression to
+          // add a smooth transition effect to
+          // the buildings as the user zooms in.
+          "fill-extrusion-height": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            15,
+            0,
+            15.05,
+            ["get", "height"],
+          ],
+          "fill-extrusion-base": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            15,
+            0,
+            15.05,
+            ["get", "min_height"],
+          ],
+          "fill-extrusion-opacity": 0.6,
         },
-        labelLayerId
-      );
+      } as any;
+      this.map!.addLayer(layerBuilding, labelLayerId);
     });
   }
 
@@ -156,13 +203,6 @@ export class MapBoxComponent
    * @param gl //https://docs.mapbox.com/mapbox-gl-js/example/add-3d-model/
    */
   private onAdd = (map: any, gl: any) => {
-    // create two three.js lights to illuminate the model
-    const directionalLight = new THREE.DirectionalLight(0xffffff);
-    directionalLight.position.set(0, -70, 100).normalize();
-    this.scene.add(directionalLight);
-    const directionalLight2 = new THREE.DirectionalLight(0xffffff);
-    directionalLight2.position.set(0, 70, 100).normalize();
-    this.scene.add(directionalLight2);
     // use the Mapbox GL JS map canvas for three.js
     const canvas = map.getCanvas() as HTMLCanvasElement;
     canvas.style.width = "100%";
@@ -186,25 +226,31 @@ export class MapBoxComponent
   };
 
   private render = (_gl: any, matrix: number[]) => {
+    if (!this.world) return;
     const m = new THREE.Matrix4().fromArray(matrix);
     this.camera.projectionMatrix = m.multiply(this.coord.mapCamera);
     this.renderer.resetState();
-    this.renderer.render(this.scene, this.camera);
+    this.renderer.render(this.world.scene.three, this.camera);
+    this.labelRenderer.render(
+      this.world.scene.three as THREE.Scene,
+      this.camera
+    );
     this.map!.triggerRepaint();
   };
   private setupMap() {
     // add custom layer
     //https://docs.mapbox.com/mapbox-gl-js/example/add-3d-model/
+    const bimModelId = "3d-model";
 
     const customLayer = {
-      id: "3d-model",
+      id: bimModelId,
       type: "custom",
       renderingMode: "3d",
       onAdd: this.onAdd,
       render: this.render,
-    };
+    } as any;
+
     this.map!.on("style.load", () => {
-      //@ts-ignore
       this.map!.addLayer(customLayer);
       this.map!.resize();
     });
@@ -236,9 +282,6 @@ export class MapBoxComponent
   private updateLabelRendererSize = () => {
     setTimeout(() => {
       this.map!.resize();
-      const canvas = this.map!.getCanvas() as HTMLCanvasElement;
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
       if (this.renderer?.domElement) {
         const {width, height} =
           this.renderer.domElement.getBoundingClientRect();

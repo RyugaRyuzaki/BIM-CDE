@@ -4,7 +4,7 @@ import {useNavigate, useSearchParams} from "react-router-dom";
 
 import {useSignals} from "@preact/signals-react/runtime";
 import RoomCredential from "./room/RoomCredential";
-import {memberSignal} from "@stores/viewer/member";
+import {memberSignal} from "@bim/signals/member";
 import RoomPreview from "./room/RoomPreview";
 
 //http://localhost:5001/viewer/room?permission=main&roomId=1&userId=1&username=vuong1
