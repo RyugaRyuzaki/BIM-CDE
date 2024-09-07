@@ -232,71 +232,71 @@ export class DxfComponent extends OBC.Component implements OBC.Disposable {
     text.scale.set(0.001, 0.001, 0.001);
     return text;
   }
-  private drawSolid(entity: IEntity, data: IDxf): THREE.Object3D {
-    const geometry = new THREE.BufferGeometry();
+  // private drawSolid(entity: IEntity, data: IDxf): THREE.Object3D {
+  //   const geometry = new THREE.BufferGeometry();
 
-    //@ts-ignore
-    const points = (entity.points as THREE.Vector3[]) || [];
-    // verts = geometry.vertices;
-    const verts: THREE.Vector3[] = [];
-    addTriangleFacingCamera(verts, points[0], points[1], points[2]);
-    addTriangleFacingCamera(verts, points[1], points[2], points[3]);
+  //   //@ts-ignore
+  //   const points = (entity.points as THREE.Vector3[]) || [];
+  //   // verts = geometry.vertices;
+  //   const verts: THREE.Vector3[] = [];
+  //   addTriangleFacingCamera(verts, points[0], points[1], points[2]);
+  //   addTriangleFacingCamera(verts, points[1], points[2], points[3]);
 
-    const material = new THREE.MeshBasicMaterial({
-      color: getColor(entity, data),
-    });
-    geometry.setFromPoints(verts);
+  //   const material = new THREE.MeshBasicMaterial({
+  //     color: getColor(entity, data),
+  //   });
+  //   geometry.setFromPoints(verts);
 
-    return new THREE.Mesh(geometry, material);
-  }
-  private drawPoint(entity: IEntity, data: IDxf): THREE.Object3D {
-    const geometry = new THREE.BufferGeometry();
-    //@ts-ignore
-    const position = (entity.position as THREE.Vector3) || new THREE.Vector3();
-    geometry.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute([position.x, position.y, position.z], 3)
-    );
+  //   return new THREE.Mesh(geometry, material);
+  // }
+  // private drawPoint(entity: IEntity, data: IDxf): THREE.Object3D {
+  //   const geometry = new THREE.BufferGeometry();
+  //   //@ts-ignore
+  //   const position = (entity.position as THREE.Vector3) || new THREE.Vector3();
+  //   geometry.setAttribute(
+  //     "position",
+  //     new THREE.Float32BufferAttribute([position.x, position.y, position.z], 3)
+  //   );
 
-    const color = getColor(entity, data);
+  //   const color = getColor(entity, data);
 
-    const material = new THREE.PointsMaterial({
-      size: 0.1,
-      color: new THREE.Color(color),
-    });
-    const point = new THREE.Points(geometry, material);
-    return point;
-  }
-  private drawBlock(entity: IEntity, data: IDxf): THREE.Object3D {
-    const block = data.blocks[entity.name];
+  //   const material = new THREE.PointsMaterial({
+  //     size: 0.1,
+  //     color: new THREE.Color(color),
+  //   });
+  //   const point = new THREE.Points(geometry, material);
+  //   return point;
+  // }
+  // private drawBlock(entity: IEntity, data: IDxf): THREE.Object3D {
+  //   const block = data.blocks[entity.name];
 
-    if (!block.entities) return null;
+  //   if (!block.entities) return null;
 
-    var group = new THREE.Object3D();
+  //   var group = new THREE.Object3D();
 
-    if (entity.xScale) group.scale.x = entity.xScale;
-    if (entity.yScale) group.scale.y = entity.yScale;
+  //   if (entity.xScale) group.scale.x = entity.xScale;
+  //   if (entity.yScale) group.scale.y = entity.yScale;
 
-    if (entity.rotation) {
-      group.rotation.z = (entity.rotation * Math.PI) / 180;
-    }
+  //   if (entity.rotation) {
+  //     group.rotation.z = (entity.rotation * Math.PI) / 180;
+  //   }
 
-    if (entity.position) {
-      group.position.x = entity.position.x;
-      group.position.y = entity.position.y;
-      group.position.z = entity.position.z;
-    }
+  //   if (entity.position) {
+  //     group.position.x = entity.position.x;
+  //     group.position.y = entity.position.y;
+  //     group.position.z = entity.position.z;
+  //   }
 
-    for (var i = 0; i < block.entities.length; i++) {
-      var childEntity = drawEntity(block.entities[i], data, group);
-      if (childEntity) group.add(childEntity);
-    }
+  //   for (var i = 0; i < block.entities.length; i++) {
+  //     var childEntity = drawEntity(block.entities[i], data, group);
+  //     if (childEntity) group.add(childEntity);
+  //   }
 
-    return group;
-  }
-  private drawSpline(entity: IEntity, data: IDxf): THREE.Object3D {}
-  private drawMText(entity: IEntity, data: IDxf): THREE.Object3D {}
-  private drawEllipse(entity: IEntity, data: IDxf): THREE.Object3D {}
-  private drawDimension(entity: IEntity, data: IDxf): THREE.Object3D {}
+  //   return group;
+  // }
+  // private drawSpline(entity: IEntity, data: IDxf): THREE.Object3D {}
+  // private drawMText(entity: IEntity, data: IDxf): THREE.Object3D {}
+  // private drawEllipse(entity: IEntity, data: IDxf): THREE.Object3D {}
+  // private drawDimension(entity: IEntity, data: IDxf): THREE.Object3D {}
 }
 //

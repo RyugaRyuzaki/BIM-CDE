@@ -7,4 +7,6 @@ export const modelTreeSignal = signal<IModelTree | null>(null);
 export function disposeTreeViewer() {
   modelTreeSignal.value = null;
 }
-export function initTree(projectId: string | null) {}
+export function initTree(projectId: string | null) {
+  console.log(projectId);
+}

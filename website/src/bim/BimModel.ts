@@ -210,7 +210,7 @@ export class BimModel implements OBC.Disposable {
     });
   }
 
-  loadModel = async (treeItem: IModelTree) => {
+  loadModel = async () => {
     try {
       modelLoadingSignal.value = true;
 
@@ -231,8 +231,8 @@ export class BimModel implements OBC.Disposable {
       const ifcTilerComponent = this.components.get(IfcTilerComponent);
       this.loaderProgress.loadIfcFile(
         file,
-        async ( buffer: Uint8Array, name: string ) => {
-        await  ifcTilerComponent.streamIfcFile(buffer,name,treeItem)
+        async (buffer: Uint8Array, name: string) => {
+          await ifcTilerComponent.streamIfcWorkerFile(buffer, name);
         }
       );
     } catch (err: any) {

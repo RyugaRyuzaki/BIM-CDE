@@ -16,7 +16,17 @@ const ProjectTree = () => {
           <AccordionTrigger>
             {selectProjectSignal.value?.name ?? ""}
           </AccordionTrigger>
-          <AccordionContent></AccordionContent>
+          <AccordionContent>
+            {selectProjectSignal.value && (
+              <>
+                {selectProjectSignal.value.models.length === 0 ? (
+                  <p className="text-center">No Models</p>
+                ) : (
+                  <></>
+                )}
+              </>
+            )}
+          </AccordionContent>
         </AccordionItem>
       </Accordion>
     </div>

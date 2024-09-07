@@ -1,3 +1,13 @@
+export interface IModelParser {
+  id: string;
+  name: string;
+  generated: boolean;
+}
+export interface IProjectParser {
+  id: string;
+  name: string;
+  models: IModelParser[];
+}
 export interface IModel {
   id: string;
   name: string;

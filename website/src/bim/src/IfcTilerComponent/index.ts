@@ -1,4 +1,4 @@
-import {spinnerSignal} from "@bim/signals/loader";
+import {propertyLoaderSignal, spinnerSignal} from "@bim/signals/loader";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
 import * as FRAGS from "@thatopen/fragments";
@@ -6,7 +6,15 @@ import * as WEBIFC from "web-ifc";
 import * as THREE from "three";
 import {LogLevel} from "web-ifc";
 import {IfcStreamerComponent} from "../IfcStreamerComponent";
-import {IModelTree} from "@bim/types";
+import {
+  IIndicesStreamed,
+  IPayloadParser,
+  IProgress,
+  IPropertiesStreamed,
+  IWorkerParser,
+  IWorkerReceive,
+} from "./src/types";
+import {setNotify} from "@components/Notify/baseNotify";
 
 interface GeometriesStreaming {
   assets: {
@@ -64,6 +72,15 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
 
   readonly onDisposed: OBC.Event<any> = new OBC.Event();
 
+  // worker
+  private parserWorker = new Worker(
+    new URL("./src/IfcWorker.ts", import.meta.url),
+    {
+      type: "module",
+      credentials: "include",
+    }
+  );
+
   // S3 storage ${host}/${bucket_name}/${modelId}
   artifactModelData: {
     [uuid: string]: {
@@ -89,10 +106,13 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
   constructor(components: OBC.Components) {
     super(components);
     this.components.add(IfcTilerComponent.uuid, this);
+    this.onWorkerMessage();
   }
   //3 method
   async dispose() {
     this.artifactModelData = {};
+    this.parserWorker.terminate();
+    (this.parserWorker as any) = null;
     this.onDisposed.trigger(this);
     this.onDisposed.reset();
     console.log("disposed IfcTilerComponent");
@@ -109,12 +129,43 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
     }
     return indexMap;
   }
-  streamIfcFile = async (
-    buffer: Uint8Array,
-    name: string,
-    treeItem: IModelTree
-  ) => {
-    const modelId = treeItem.id;
+  private onIndicesStreamed = (payload: IIndicesStreamed) => {
+    console.log("onIndicesStreamed", payload);
+  };
+  private onPropertiesStreamed = (payload: IPropertiesStreamed) => {
+    console.log("onPropertiesStreamed", payload);
+  };
+  private onProgressProperty = (payload: IProgress) => {
+    console.log("onProgressProperty", payload);
+  };
+  private handlerMap = {
+    onIndicesStreamed: this.onIndicesStreamed,
+    onPropertiesStreamed: this.onPropertiesStreamed,
+    onProgressProperty: this.onProgressProperty,
+  };
+
+  private onWorkerMessage() {
+    this.parserWorker.addEventListener("message", async (e: MessageEvent) => {
+      const {action, payload} = e.data as IWorkerReceive;
+      if (action === "onError") {
+        setNotify(payload as string, false);
+        return;
+      }
+      const handler = this.handlerMap[action as keyof typeof this.handlerMap];
+      //@ts-ignore
+      if (handler) handler(payload);
+    });
+  }
+  streamIfcWorkerFile = async (buffer: Uint8Array, _name: string) => {
+    const modelId = THREE.MathUtils.generateUUID();
+    this.parserWorker.postMessage({
+      action: "onIfcStream",
+      payload: {buffer, modelId} as IPayloadParser,
+    } as IWorkerParser);
+  };
+
+  streamIfcFile = async (buffer: Uint8Array, name: string) => {
+    const modelId = THREE.MathUtils.generateUUID();
     if (!this.enabled) throw new Error("This class was not enabled!");
     /* ==========  IfcPropertyTiler  ========== */
     const ifcPropertiesTiler = this.components.get(OBC.IfcPropertiesTiler);
@@ -221,7 +272,9 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
         });
       }
     );
+    // progress
     ifcPropertiesTiler.onProgress.add(async (progress: number) => {
+      propertyLoaderSignal.value = progress;
       if (progress !== 1) return;
       await onSuccess();
     });

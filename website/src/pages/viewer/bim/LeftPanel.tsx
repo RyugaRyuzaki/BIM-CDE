@@ -27,7 +27,7 @@ const LeftPanel = ({bimModel}: {bimModel: BimModel}) => {
         <LoadModel
           handleOpenFile={() => {
             // if (!modelTreeSignal.value) return;
-            // bimModel.loadModel(modelTreeSignal.value!);
+            bimModel.loadModel();
           }}
         />
       </TabsContent>

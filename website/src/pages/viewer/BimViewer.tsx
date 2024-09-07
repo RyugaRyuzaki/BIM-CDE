@@ -42,7 +42,14 @@ const BimViewer = () => {
       const project =
         projectSignal.value.find((pro) => pro.id === projectId) || null;
       if (project) {
-        selectProjectSignal.value = {...project, models: [...project.models]};
+        selectProjectSignal.value = {
+          ...project,
+          models: project.models.map((model) => ({
+            id: model.id,
+            name: model.name,
+            generated: true,
+          })),
+        };
       }
     }
 
