@@ -8,7 +8,7 @@ const Spinner = () => {
   useSignals();
   return (
     <div
-      className={`absolute h-full w-full top-0 left-0 z-5000 flex items-center bg-slate-400 ${
+      className={`absolute h-full w-full top-0 left-0 z-50 flex items-center bg-slate-400 ${
         spinnerSignal.value ? "visible" : "hidden"
       }`}
     >

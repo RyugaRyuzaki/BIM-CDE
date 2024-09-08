@@ -1,5 +1,5 @@
 {
-  "id": "a768326b-fd32-4307-b55b-d57bf431e1d7",
+  "id": "42260b0d-8942-44fc-90e3-9f540c8f9f15",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -55,6 +55,72 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
+    "public.modelProperties": {
+      "name": "modelProperties",
+      "schema": "",
+      "columns": {
+        "model_id": {
+          "name": "model_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "express_id": {
+          "name": "express_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "element_data": {
+          "name": "element_data",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "model_id_idx": {
+          "name": "model_id_idx",
+          "columns": [
+            {
+              "expression": "model_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "modelProperties_model_id_models_id_fk": {
+          "name": "modelProperties_model_id_models_id_fk",
+          "tableFrom": "modelProperties",
+          "tableTo": "models",
+          "columnsFrom": [
+            "model_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "modelProperties_express_id_model_id_pk": {
+          "name": "modelProperties_express_id_model_id_pk",
+          "columns": [
+            "express_id",
+            "model_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
     "public.models": {
       "name": "models",
       "schema": "",
@@ -69,12 +135,6 @@
         "name": {
           "name": "name",
           "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "version_id": {
-          "name": "version_id",
-          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },

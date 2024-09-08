@@ -438,11 +438,14 @@ export class IfcStreamerComponent
     serverUrl?: string
   ) {
     if (!this.fromServer) {
-      const ifcTileLoader = this.components.get(IfcTilerComponent);
       const artifactModelData =
         this.components.get(IfcTilerComponent).artifactModelData;
-      if (!artifactModelData || !artifactModelData[modelID]) return null;
-      const {streamedGeometryFiles} = artifactModelData[modelID];
+      if (
+        !artifactModelData ||
+        artifactModelData.streamedGeometryFiles === undefined
+      )
+        return null;
+      const {streamedGeometryFiles} = artifactModelData;
       return streamedGeometryFiles[geometryFile];
     } else {
       if (!serverUrl) return null;

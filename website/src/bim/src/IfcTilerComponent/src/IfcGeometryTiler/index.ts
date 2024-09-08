@@ -1,61 +1,25 @@
 import * as WEBIFC from "web-ifc";
 import * as THREE from "three";
 import * as FRAGS from "@thatopen/fragments";
-import * as OBC from "@thatopen/components";
 import {
   CivilReader,
   IfcMetadataReader,
+  IfcStreamingSettings,
+  isPointInFrontOfPlane,
+  obbFromPoints,
   SpatialIdsFinder,
   SpatialStructure,
 } from "./src";
+import {StreamedAsset, StreamedGeometries} from "../types";
 
 /**
  * A component that handles the tiling of IFC geometries for efficient streaming. 📕 [Tutorial](https://docs.thatopen.com/Tutorials/Components/Core/IfcGeometryTiler). 📘 [API](https://docs.thatopen.com/api/@thatopen/components/classes/IfcGeometryTiler).
  */
-export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
-  /**
-   * A unique identifier for the component.
-   * This UUID is used to register the component within the Components system.
-   */
-  static readonly uuid = "c9a050a6-96d7-42f0-b200-5b4b389dc622" as const;
-
-  /**
-   * Event triggered when geometry is streamed.
-   * Contains the streamed geometry data and its buffer.
-   */
-  readonly onGeometryStreamed = new OBC.Event<{
-    buffer: Uint8Array;
-    data: OBC.StreamedGeometries;
-  }>();
-
-  /**
-   * Event triggered when assets are streamed.
-   * Contains the streamed assets.
-   */
-  readonly onAssetStreamed = new OBC.Event<OBC.StreamedAsset[]>();
-
-  /**
-   * Event triggered to indicate the progress of the streaming process.
-   * Contains the progress percentage.
-   */
-  readonly onProgress = new OBC.Event<number>();
-
-  /**
-   * Event triggered when the IFC file is loaded.
-   * Contains the loaded IFC file data.
-   */
-  readonly onIfcLoaded = new OBC.Event<Uint8Array>();
-
-  /** {@link Disposable.onDisposed} */
-  readonly onDisposed = new OBC.Event();
-
+export class IfcGeometryTiler {
   /**
    * Settings for the IfcGeometryTiler.
    */
-  settings = new OBC.IfcStreamingSettings();
-
-  /** {@link Component.enabled} */
-  enabled: boolean = true;
+  settings = new IfcStreamingSettings();
 
   /**
    * The WebIFC API instance used for IFC file processing.
@@ -85,24 +49,26 @@ export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
   private _civil = new CivilReader();
   private _groupSerializer = new FRAGS.Serializer();
 
-  private _assets: OBC.StreamedAsset[] = [];
+  private _assets: StreamedAsset[] = [];
 
   private _meshesWithHoles = new Set<number>();
 
-  constructor(components: OBC.Components) {
-    super(components);
-    this.components.add(IfcGeometryTiler.uuid, this);
-    this.settings.excludedCategories.add(WEBIFC.IFCOPENINGELEMENT);
-  }
+  constructor(
+    private onAssetStreamed: (assetItems: StreamedAsset[]) => void,
+    private onGeometryStreamed: ({
+      data,
+      buffer,
+    }: {
+      data: StreamedGeometries;
+      buffer: Uint8Array;
+    }) => void,
+    private onIfcLoaded: (group: Uint8Array) => void,
+    private onProgress: (progress: number) => void
+  ) {}
 
   /** {@link Disposable.dispose} */
   dispose() {
-    this.onIfcLoaded.reset();
-    this.onGeometryStreamed.reset();
-    this.onAssetStreamed.reset();
     (this.webIfc as any) = null;
-    this.onDisposed.trigger();
-    this.onDisposed.reset();
   }
 
   /**
@@ -132,26 +98,6 @@ export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
     // console.log(`Streaming the IFC took ${performance.now() - before} ms!`);
   }
 
-  /**
-   * This method streams the IFC file from a given callback.
-   *
-   * @param loadCallback - The callback function that will be used to load the IFC file.
-   * @returns A Promise that resolves when the streaming process is complete.
-   *
-   * @remarks
-   * This method cleans up any resources after the streaming process is complete.
-   *
-   */
-  async streamFromCallBack(loadCallback: WEBIFC.ModelLoadCallback) {
-    // const before = performance.now();
-    await this.streamIfcFile(loadCallback);
-
-    await this.streamAllGeometries();
-    this.cleanUp();
-
-    // console.log(`Streaming the IFC took ${performance.now() - before} ms!`);
-  }
-
   private async readIfcFile(data: Uint8Array) {
     const {path, absolute, logLevel} = this.settings.wasm;
     this.webIfc.SetWasmPath(path, absolute);
@@ -160,16 +106,6 @@ export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
       this.webIfc.SetLogLevel(logLevel);
     }
     this.webIfc.OpenModel(data, this.settings.webIfc);
-  }
-
-  private async streamIfcFile(loadCallback: WEBIFC.ModelLoadCallback) {
-    const {path, absolute, logLevel} = this.settings.wasm;
-    this.webIfc.SetWasmPath(path, absolute);
-    await this.webIfc.Init();
-    if (logLevel) {
-      this.webIfc.SetLogLevel(logLevel);
-    }
-    this.webIfc.OpenModelFromCallback(loadCallback, this.settings.webIfc);
   }
 
   private async streamAllGeometries() {
@@ -250,7 +186,7 @@ export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
       if (currentProgress > nextProgress) {
         nextProgress += 0.01;
         nextProgress = Math.max(nextProgress, currentProgress);
-        this.onProgress.trigger(Math.round(nextProgress * 100) / 100);
+        this.onProgress(Math.round(nextProgress * 100) / 100);
       }
     }
 
@@ -270,15 +206,6 @@ export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
       geometryID.set(id, index);
     }
 
-    // Delete assets that have no geometric representation
-    // const ids = group.data.keys();
-    // for (const id of ids) {
-    //   const [keys] = group.data.get(id)!;
-    //   if (!keys.length) {
-    //     group.data.delete(id);
-    //   }
-    // }
-
     SpatialIdsFinder.get(group, this.webIfc);
 
     const matrix = this.webIfc.GetCoordinationMatrix(0);
@@ -286,7 +213,7 @@ export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
     group.civilData = this._civil.read(this.webIfc);
 
     const buffer = this._groupSerializer.export(group);
-    this.onIfcLoaded.trigger(buffer);
+    this.onIfcLoaded(buffer);
     group.dispose(true);
   }
 
@@ -313,7 +240,7 @@ export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
 
     const id = mesh.expressID;
 
-    const asset: OBC.StreamedAsset = {id, geometries: []};
+    const asset: StreamedAsset = {id, geometries: []};
 
     for (let i = 0; i < size; i++) {
       const geometry = mesh.geometries.get(i);
@@ -383,7 +310,7 @@ export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
     }
 
     // const bbox = makeApproxBoundingBox(position, index);
-    const obb = OBC.obbFromPoints(position);
+    const obb = obbFromPoints(position);
     const boundingBox = new Float32Array(obb.transformation.elements);
 
     // Simple hole test: see if all triangles are facing away the center
@@ -407,7 +334,7 @@ export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
 
       const pos = [x, y, z];
       const nor = [nx, ny, nz];
-      if (OBC.isPointInFrontOfPlane(centerArray, pos, nor)) {
+      if (isPointInFrontOfPlane(centerArray, pos, nor)) {
         hasHoles = true;
         break;
       }
@@ -427,7 +354,7 @@ export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
   }
 
   private async streamAssets() {
-    await this.onAssetStreamed.trigger(this._assets);
+    await this.onAssetStreamed(this._assets);
     this._assets = null as any;
     this._assets = [];
   }
@@ -435,13 +362,13 @@ export class IfcGeometryTiler extends OBC.Component implements OBC.Disposable {
   private async streamGeometries() {
     let buffer = this._streamSerializer.export(this._geometries) as Uint8Array;
 
-    let data: OBC.StreamedGeometries = {};
+    let data: StreamedGeometries = {};
 
     for (const [id, {boundingBox, hasHoles}] of this._geometries) {
       data[id] = {boundingBox, hasHoles};
     }
 
-    this.onGeometryStreamed.trigger({data, buffer});
+    this.onGeometryStreamed({data, buffer});
 
     // Force memory disposal of all created items
     data = null as any;

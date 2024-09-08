@@ -2,13 +2,18 @@ import * as WEBIFC from "web-ifc";
 import {LogLevel} from "web-ifc";
 
 import {
+  IAssetStreamed,
+  IGeometryStreamed,
   IPayloadModify,
   IPayloadParser,
   IProgress,
   IWorkerParser,
   IWorkerReceive,
+  StreamedAsset,
+  StreamedGeometries,
 } from "./types";
 import {IfcPropertiesTiler} from "./IfcPropertiesTiler";
+import {IfcGeometryTiler} from "./IfcGeometryTiler";
 
 const wasm = {
   path: "https://unpkg.com/web-ifc@0.0.57/",
@@ -23,6 +28,33 @@ const webIfc: WEBIFC.LoaderSettings = {
 } as const;
 
 // streamer geometry
+
+const onAssetStreamed = (payload: IAssetStreamed) => {
+  self.postMessage({action: "onAssetStreamed", payload} as IWorkerReceive);
+};
+const onGeometryStreamed = (payload: IGeometryStreamed) => {
+  self.postMessage({action: "onGeometryStreamed", payload} as IWorkerReceive);
+};
+const onIfcLoaded = (payload: Uint8Array) => {
+  self.postMessage({action: "onIfcLoaded", payload} as IWorkerReceive);
+};
+const onProgressGeometry = (progress: number) => {
+  self.postMessage({
+    action: "onProgressGeometry",
+    payload: {progress, type: "geometry"} as IProgress,
+  } as IWorkerReceive);
+};
+const ifcGeometryTiler = new IfcGeometryTiler(
+  onAssetStreamed,
+  onGeometryStreamed,
+  onIfcLoaded,
+  onProgressGeometry
+);
+ifcGeometryTiler.settings.wasm = wasm;
+ifcGeometryTiler.settings.autoSetWasm = false;
+ifcGeometryTiler.settings.webIfc = webIfc;
+ifcGeometryTiler.settings.minGeometrySize = 10;
+ifcGeometryTiler.settings.minAssetsSize = 1000;
 
 // streamer property
 const onIndicesStreamed = (payload: Map<number, Map<number, number[]>>) => {
@@ -55,6 +87,7 @@ const onIfcStream = async (payload: IPayloadParser) => {
   try {
     const {buffer} = payload;
     await ifcPropertiesTiler.streamFromBuffer(buffer);
+    await ifcGeometryTiler.streamFromBuffer(buffer);
   } catch (error: any) {
     self.postMessage({action: "onError", payload: error.message});
   }

@@ -61,16 +61,6 @@ export class IfcPropertiesTiler {
     this.webIfc.OpenModel(data, this.settings.webIfc);
   }
 
-  private async streamIfcFile(loadCallback: WEBIFC.ModelLoadCallback) {
-    const {path, absolute, logLevel} = this.settings.wasm;
-    this.webIfc.SetWasmPath(path, absolute);
-    await this.webIfc.Init();
-    if (logLevel) {
-      this.webIfc.SetLogLevel(logLevel);
-    }
-    this.webIfc.OpenModelFromCallback(loadCallback, this.settings.webIfc);
-  }
-
   private async streamAllProperties() {
     const {propertiesSize} = this.settings;
 
@@ -151,7 +141,7 @@ export class IfcPropertiesTiler {
       const currentProgress = typeCounter / allIfcEntities.size;
       if (currentProgress > nextProgress) {
         nextProgress = Math.round(nextProgress * 100) / 100;
-        await this.onProgress(nextProgress);
+        this.onProgress(nextProgress);
         nextProgress += 0.01;
       }
     }

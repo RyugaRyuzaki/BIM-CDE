@@ -5,10 +5,16 @@ CREATE TABLE IF NOT EXISTS "projects" (
 	"user_id" varchar(255) NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "modelProperties" (
+	"model_id" uuid,
+	"express_id" integer NOT NULL,
+	"element_data" json NOT NULL,
+	CONSTRAINT "modelProperties_express_id_model_id_pk" PRIMARY KEY("express_id","model_id")
+);
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "models" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar(255) NOT NULL,
-	"version_id" uuid NOT NULL,
 	"project_id" uuid
 );
 --> statement-breakpoint
@@ -23,6 +29,12 @@ CREATE TABLE IF NOT EXISTS "bcf" (
 );
 --> statement-breakpoint
 DO $$ BEGIN
+ ALTER TABLE "modelProperties" ADD CONSTRAINT "modelProperties_model_id_models_id_fk" FOREIGN KEY ("model_id") REFERENCES "public"."models"("id") ON DELETE no action ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
  ALTER TABLE "models" ADD CONSTRAINT "models_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
@@ -34,4 +46,5 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "user_id_idx" ON "projects" USING btree ("user_id");
+CREATE INDEX IF NOT EXISTS "user_id_idx" ON "projects" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "model_id_idx" ON "modelProperties" USING btree ("model_id");

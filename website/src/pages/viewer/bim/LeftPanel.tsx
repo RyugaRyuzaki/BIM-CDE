@@ -4,10 +4,8 @@ import {BimModel} from "@bim/BimModel";
 import LoadModel from "./LoadModel";
 import {useSignals} from "@preact/signals-react/runtime";
 import Settings from "./Settings";
-import ModelTree from "./ModelTree";
-import {IModelTree} from "@bim/types";
-import {modelTreeSignal} from "@bim/signals";
 import ProjectTree from "./ProjectTree";
+import {modelLoadedSignal} from "@bim/signals";
 
 const LeftPanel = ({bimModel}: {bimModel: BimModel}) => {
   useSignals();
@@ -22,14 +20,14 @@ const LeftPanel = ({bimModel}: {bimModel: BimModel}) => {
         value="Project"
         className="relative h-[calc(100%-40px)] w-full overflow-hidden"
       >
-        <ProjectTree />
-
-        <LoadModel
-          handleOpenFile={() => {
-            // if (!modelTreeSignal.value) return;
-            bimModel.loadModel();
-          }}
-        />
+        <ProjectTree bimModel={bimModel} />
+        {!modelLoadedSignal.value && (
+          <LoadModel
+            handleOpenFile={() => {
+              bimModel.loadModel();
+            }}
+          />
+        )}
       </TabsContent>
       <TabsContent
         value="Settings"
