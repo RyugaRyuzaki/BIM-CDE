@@ -2,6 +2,7 @@ import {
   geometryLoaderSignal,
   modelLoadedSignal,
   propertyLoaderSignal,
+  spinnerSignal,
 } from "@bim/signals/loader";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
@@ -327,6 +328,8 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
         throw new Error("customIfcStreamer is not initialized!");
       // const fileName = "18floor.ifc";
       const serverUrl = `${this.aws3Host}/${projectId}/${modelId}`;
+      const baseUrl = `${this.apiUrl}/v1/models/${modelId}/properties/`;
+
       customIfcStreamer.fromServer = true;
       const groupRaw = await axios({
         url: `${serverUrl}/fragmentsGroup.frag`,
@@ -362,6 +365,7 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
         new Uint8Array(group),
         true,
         serverUrl,
+        baseUrl,
         properties
       );
     } catch (error) {
@@ -404,6 +408,7 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
       setNotify("Missing data", false);
       return;
     }
+    spinnerSignal.value = true;
     try {
       const {modelId, name} = modelServer;
       const settings = {assets, geometries};
@@ -428,13 +433,7 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
       for (const {name, bits} of propertyStorageFiles) {
         formData.append("files", new File([bits], name, {type: this.json}));
       }
-      // propertyServerData
-      for (const {name, data} of propertyServerData) {
-        formData.append(
-          "files",
-          new File([JSON.stringify(data)], name, {type: this.json})
-        );
-      }
+
       // streamedGeometryFiles
       for (const geometryFile in streamedGeometryFiles) {
         const buffer = streamedGeometryFiles[geometryFile];
@@ -450,6 +449,16 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
         },
       });
 
+      await axios.post(
+        `${this.apiUrl}/v1/models/properties`,
+        {properties: propertyServerData},
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
       if (selectProjectSignal.value) {
         const model = selectProjectSignal.value.models.find(
           ({id}) => id === modelId
@@ -459,8 +468,10 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
         selectProjectSignal.value = {...selectProjectSignal.value};
         setNotify("Upload successfully!");
       }
+      spinnerSignal.value = false;
     } catch (error: any) {
       setNotify(error.message, false);
+      spinnerSignal.value = false;
     }
   };
 }

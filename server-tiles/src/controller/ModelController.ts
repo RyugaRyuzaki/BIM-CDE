@@ -6,7 +6,7 @@ import {forbidden} from "../config/ErrorHandler";
 import {WithAuthProp} from "@clerk/clerk-sdk-node";
 import {getUserInfo} from "./ProjectController";
 import {awsClient, uploadSmall} from "../config/AWS3";
-import {models} from "../db/schema";
+import {models, Properties} from "../db/schema";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -132,6 +132,49 @@ export class ModelController extends BaseController<
         next(error);
       }
     });
+  };
+  properties = async (req: Request, res: Response, next: NextFunction) => {
+    const {properties} = req.body;
+    if (!properties)
+      return next({
+        statusCode: 403,
+        message: "Missing Data",
+      });
+    if (!Array.isArray(properties))
+      return next({
+        statusCode: 403,
+        message: "Wrong data type",
+      });
+    const propArray: {
+      modelId: string;
+      name: string;
+      data: {[id: number]: any};
+    }[] = properties;
+    try {
+      await Properties.insertMany(propArray);
+      return res.status(200).json({length: 10});
+    } catch (error) {
+      next(error);
+    }
+  };
+  getProperties = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const {modelId, name} = req.params;
+      if (!modelId || !name)
+        return next({
+          statusCode: 403,
+          message: "Missing params",
+        });
+      if (typeof modelId !== "string" || typeof name !== "string")
+        return next({
+          statusCode: 403,
+          message: "Wrong data type",
+        });
+      const props = await Properties.findOne({modelId, name});
+      return res.status(200).json(props?.data);
+    } catch (error) {
+      next(error);
+    }
   };
 }
 export const modelController = new ModelController(db);

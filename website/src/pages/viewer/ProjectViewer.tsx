@@ -6,6 +6,7 @@ import {useState} from "react";
 import ProjectContent from "./project/ProjectContent";
 import {SiAirplayvideo} from "react-icons/si";
 import {FaShareFromSquare} from "react-icons/fa6";
+import {MdPreview} from "react-icons/md";
 import {
   Tooltip,
   TooltipContent,
@@ -15,7 +16,7 @@ import {
 import {useNavigate} from "react-router";
 import {isBrowser} from "@constants/browser";
 import {IProject} from "@bim/types";
-const iconClassName = "h-[16px] w-[16px]";
+const iconClassName = "h-[20px] w-[20px]";
 
 /**
  *
@@ -31,6 +32,12 @@ const ProjectViewer = () => {
   const onViewProject = () => {
     if (!selectProject) return;
     navigate(`/viewer/bim?projectId=${selectProject.id}&private=true`);
+  };
+  const onPreViewProject = () => {
+    if (!selectProject) return;
+    navigate(
+      `/viewer/bim?projectId=${selectProject.id}&private=true&preview=true`
+    );
   };
   const onShare = () => {
     if (!selectProject) return;
@@ -71,6 +78,21 @@ const ProjectViewer = () => {
                           </TooltipTrigger>
                           <TooltipContent side="bottom">
                             <p>View projects</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider delayDuration={10}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant={"secondary"}
+                              onClick={onPreViewProject}
+                            >
+                              <MdPreview className={iconClassName} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            <p>PreView projects</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>

@@ -44,7 +44,6 @@ const ProjectTree = ({bimModel}: {bimModel: BimModel}) => {
         // toggle visible model
       }
     }
-    console.log(model);
     model.checked = checked;
     selectProjectSignal.value = {...selectProjectSignal.value};
   };

@@ -4,6 +4,7 @@ import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
 import axios from "axios";
 import {IfcTilerComponent} from "../IfcTilerComponent";
+import {GeometryCullerRenderer} from "./src";
 export interface StreamPropertiesSettings {
   /**
    * Map of identifiers to numbers.
@@ -70,7 +71,7 @@ export class IfcStreamerComponent
    */
   maxRamTime = 5000;
 
-  private _culler: OBF.GeometryCullerRenderer | null = null;
+  private _culler: GeometryCullerRenderer | null = null;
 
   private _world: OBC.World | null = null;
 
@@ -117,7 +118,7 @@ export class IfcStreamerComponent
     this._world = world;
     this._culler?.dispose();
 
-    this._culler = new OBF.GeometryCullerRenderer(this.components, world);
+    this._culler = new GeometryCullerRenderer(this.components, world);
     this._culler.onViewUpdated.add(
       async ({toLoad, toRemove, toShow, toHide}) => {
         await this.loadFoundGeometries(toLoad);
@@ -270,6 +271,7 @@ export class IfcStreamerComponent
     groupBuffer: Uint8Array,
     coordinate: boolean,
     serverUrl: string,
+    baseUrl: string,
     properties?: StreamPropertiesSettings
   ) {
     const {assets, geometries} = settings;
@@ -329,7 +331,7 @@ export class IfcStreamerComponent
         ids,
         types,
         baseFileName: properties.indexesFile,
-        baseUrl: serverUrl + "/",
+        baseUrl,
       };
       const {relationsMap} = properties;
       const indexer = this.components.get(OBC.IfcRelationsIndexer);
@@ -539,9 +541,8 @@ export class IfcStreamerComponent
             // geom.setAttribute("normal", norAttr);
 
             geom.setIndex(Array.from(index));
-            // geom.computeVertexNormals();
+            geom.computeVertexNormals();
             // Separating opaque and transparent items is neccesary for Three.js
-            console.log(geom);
             const transp: OBF.StreamedInstance[] = [];
             const opaque: OBF.StreamedInstance[] = [];
             for (const instance of instances) {

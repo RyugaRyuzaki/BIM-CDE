@@ -34,13 +34,16 @@ const BimViewer = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const projectId = searchParams.get("projectId");
   const privateProject = searchParams.get("private");
+  const isPreviewParams = searchParams.get("preview");
 
+  const isPreview = isPreviewParams ? Boolean(isPreviewParams) : false;
   const [bimModel, setBimModel] = useState<BimModel | null>(null);
   useEffect(() => {
     if (!projectId) {
       navigate("/Error");
       return;
     }
+
     if (!containerRef.current) return;
     BUI.Manager.init();
     const model = new BimModel(containerRef.current);
@@ -53,13 +56,15 @@ const BimViewer = () => {
       if (project) {
         selectProjectSignal.value = {
           ...project,
-          models: project.models.map((model) => ({
-            id: model.id,
-            name: model.name,
-            generated: true,
-            checked: false,
-            isLoaded: false,
-          })),
+          models: isPreview
+            ? []
+            : project.models.map((model) => ({
+                id: model.id,
+                name: model.name,
+                generated: true,
+                checked: false,
+                isLoaded: false,
+              })),
         };
       }
     }
@@ -91,7 +96,7 @@ const BimViewer = () => {
         maxSize={25}
         className="relative h-full w-[15%] p-2"
       >
-        {bimModel && <LeftPanel bimModel={bimModel} />}
+        {bimModel && <LeftPanel bimModel={bimModel} isPreview={isPreview} />}
       </ResizablePanel>
       <ResizableHandle className="w-[4px]" />
       <ResizablePanel defaultSize={85}>

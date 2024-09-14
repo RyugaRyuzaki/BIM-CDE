@@ -1,5 +1,5 @@
 {
-  "id": "995231e9-686f-4481-9756-db7cb01ab3a2",
+  "id": "3db874e3-b141-47ac-b547-a6790567a409",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -52,6 +52,72 @@
         }
       },
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.modelMetadata": {
+      "name": "modelMetadata",
+      "schema": "",
+      "columns": {
+        "model_id": {
+          "name": "model_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "x_coord": {
+          "name": "x_coord",
+          "type": "numeric(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "y_coord": {
+          "name": "y_coord",
+          "type": "numeric(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "z_coord": {
+          "name": "z_coord",
+          "type": "numeric(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rotation": {
+          "name": "rotation",
+          "type": "numeric(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lng": {
+          "name": "lng",
+          "type": "numeric(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lat": {
+          "name": "lat",
+          "type": "numeric(100)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "modelMetadata_model_id_models_id_fk": {
+          "name": "modelMetadata_model_id_models_id_fk",
+          "tableFrom": "modelMetadata",
+          "tableTo": "models",
+          "columnsFrom": [
+            "model_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },

@@ -7,7 +7,13 @@ services:
     restart: unless-stopped
     # volumes:
     #   - redis_data:/data
+  mongo:
+    image: mongo:latest
+    ports:
+      - ${MONGO_PORT}:${MONGO_PORT}
+    restart: unless-stopped
 
+    
   postgres:
     container_name: postgres_container
     image: postgres:alpine

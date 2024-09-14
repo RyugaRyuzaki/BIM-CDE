@@ -5,6 +5,16 @@ CREATE TABLE IF NOT EXISTS "projects" (
 	"user_id" varchar(255) NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "modelMetadata" (
+	"model_id" uuid PRIMARY KEY NOT NULL,
+	"x_coord" numeric(100) NOT NULL,
+	"y_coord" numeric(100) NOT NULL,
+	"z_coord" numeric(100) NOT NULL,
+	"rotation" numeric(100) NOT NULL,
+	"lng" numeric(100) NOT NULL,
+	"lat" numeric(100) NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "models" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar(255) NOT NULL,
@@ -20,6 +30,12 @@ CREATE TABLE IF NOT EXISTS "bcf" (
 	"issue_by_id" text,
 	"url" text NOT NULL
 );
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "modelMetadata" ADD CONSTRAINT "modelMetadata_model_id_models_id_fk" FOREIGN KEY ("model_id") REFERENCES "public"."models"("id") ON DELETE no action ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "models" ADD CONSTRAINT "models_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;

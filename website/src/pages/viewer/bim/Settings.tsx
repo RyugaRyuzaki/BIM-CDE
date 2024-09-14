@@ -17,11 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {useSignals} from "@preact/signals-react/runtime";
-import {
-  cameraModeSignal,
-  mapBoxSignal,
-  shadowSceneSignal,
-} from "@bim/signals/config";
+import {cameraModeSignal, shadowSceneSignal} from "@bim/signals/config";
 
 const Settings = () => {
   useSignals();
@@ -73,15 +69,6 @@ const Settings = () => {
             </Select>
           </div>
         </AccordionContent>
-      </AccordionItem>
-
-      <AccordionItem value="item-2">
-        {mapBoxSignal.value && (
-          <>
-            <AccordionTrigger>Model Coordination</AccordionTrigger>
-            <AccordionContent></AccordionContent>
-          </>
-        )}
       </AccordionItem>
     </Accordion>
   );

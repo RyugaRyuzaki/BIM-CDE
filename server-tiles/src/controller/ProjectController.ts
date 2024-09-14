@@ -12,7 +12,11 @@ export const getUserInfo = async (userId: string) => {
   return await db.query.projects.findMany({
     where: eq(projects.userId, userId),
     with: {
-      models: true,
+      models: {
+        with: {
+          meta: true,
+        },
+      },
     },
   });
 };

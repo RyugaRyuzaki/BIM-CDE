@@ -17,6 +17,8 @@ const EnvSchema = z.object({
   REDIS_PORT: z.string(),
   CLERK_SECRET_KEY: z.string(),
   CLERK_PUBLISHABLE_KEY: z.string(),
+  MONGO_HOST: z.string(),
+  MONGO_PORT: z.string(),
 });
 try {
   EnvSchema.parse(process.env);
