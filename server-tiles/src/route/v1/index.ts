@@ -8,10 +8,9 @@ import {clerkMiddleware} from "../../db";
 
 const route = Router();
 route.use("/users", users);
-route.use(bodyParser.json({limit: "50mb"}));
+route.use(bodyParser.json({limit: "1024mb"}));
 route.use(express.json());
-route.use(clerkMiddleware());
-route.use("/projects", projects);
+route.use("/projects", clerkMiddleware(), projects);
 route.use("/models", models);
 route.use("/bcf", bcf);
 export default route;

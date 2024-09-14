@@ -81,7 +81,7 @@ const ifcPropertiesTiler = new IfcPropertiesTiler(
 ifcPropertiesTiler.settings.wasm = wasm;
 ifcPropertiesTiler.settings.autoSetWasm = false;
 ifcPropertiesTiler.settings.webIfc = webIfc;
-ifcPropertiesTiler.settings.propertiesSize = 500;
+ifcPropertiesTiler.settings.propertiesSize = 100;
 
 const onIfcStream = async (payload: IPayloadParser) => {
   try {

@@ -5,6 +5,8 @@ import {configRedis, db, redisClient} from "../db";
 import {forbidden} from "../config/ErrorHandler";
 import {eq} from "drizzle-orm";
 import {WithAuthProp} from "@clerk/clerk-sdk-node";
+import {awsClient} from "../config/AWS3";
+import {v4 as uuidv4} from "uuid";
 
 export const getUserInfo = async (userId: string) => {
   return await db.query.projects.findMany({
@@ -18,6 +20,34 @@ export const getUserInfo = async (userId: string) => {
 export class ProjectController extends BaseController<
   typeof projects.$inferInsert
 > {
+  private async createBucket() {
+    try {
+      const projectId = uuidv4();
+      const params: AWS.S3.CreateBucketRequest = {
+        Bucket: projectId,
+        ACL: "public-read-write",
+      };
+      const cors = {
+        Bucket: projectId,
+        CORSConfiguration: {
+          CORSRules: [
+            {
+              AllowedMethods: ["GET"],
+              AllowedOrigins: ["*"],
+              AllowedHeaders: ["*"],
+              ExposeHeaders: ["*"],
+              MaxAgeSeconds: 300,
+            },
+          ],
+        },
+      };
+      await awsClient.createBucket(params).promise();
+      await awsClient.putBucketCors(cors).promise();
+      return projectId;
+    } catch (error) {
+      return null;
+    }
+  }
   create = async (
     req: WithAuthProp<Request>,
     res: Response,
@@ -25,20 +55,29 @@ export class ProjectController extends BaseController<
   ) => {
     try {
       const {sessionId, userId} = req.auth;
+
       const {projectName, address} = req.body;
+
       if (!projectName || !address || !userId)
         return next(forbidden("Missing Project name or address"));
+
+      const projectId = await this.createBucket();
+
+      if (!projectId) return next(forbidden("Can not create project"));
+
       await this.db
         .insert(projects)
-        .values({name: projectName, address, userId})
+        .values({id: projectId, name: projectName, address, userId})
         .returning({id: projects.id});
 
       const userProjects = await getUserInfo(userId);
+
       await redisClient.set(
         sessionId,
         JSON.stringify(userProjects),
         configRedis
       );
+
       res.status(200).json({projects: userProjects});
     } catch (error: any) {
       console.log(error);

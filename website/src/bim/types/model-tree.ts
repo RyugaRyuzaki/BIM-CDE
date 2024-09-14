@@ -2,6 +2,8 @@ export interface IModelParser {
   id: string;
   name: string;
   generated: boolean;
+  checked: boolean;
+  isLoaded: boolean;
 }
 export interface IProjectParser {
   id: string;

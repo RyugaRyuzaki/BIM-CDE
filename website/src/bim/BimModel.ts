@@ -29,6 +29,8 @@ import {
 
 import {Fragment} from "@thatopen/fragments";
 import {IModelTree} from "./types";
+import * as BUI from "@thatopen/ui";
+import selection from "./Selection";
 /**
  *
  */
@@ -38,6 +40,11 @@ export class BimModel implements OBC.Disposable {
   private loaderProgress = new FileLoaderProgress();
 
   components!: OBC.Components;
+  world!: OBC.SimpleWorld<
+    OBC.ShadowedScene,
+    OBC.OrthoPerspectiveCamera,
+    OBF.PostproductionRenderer
+  >;
   worldGrid!: OBC.SimpleGrid;
   private container3D: HTMLDivElement = this.createContainer();
 
@@ -58,6 +65,7 @@ export class BimModel implements OBC.Disposable {
     if (this.worldGrid) this.worldGrid.visible = !mapBox;
   }
 
+  selectionPanel!: BUI.Panel;
   /**
    *
    */
@@ -77,7 +85,10 @@ export class BimModel implements OBC.Disposable {
     (this.container as any) = null;
     this.components?.get(OBC.Worlds).dispose();
     this.components?.dispose();
+    (this.world as any) = null;
     (this.components as any) = null;
+    this.selectionPanel?.remove();
+    (this.selectionPanel as any) = null;
     this.onDisposed.trigger(this);
     this.onDisposed.reset();
   }
@@ -165,6 +176,7 @@ export class BimModel implements OBC.Disposable {
     const classifier = this.components.get(OBC.Classifier);
     classifier.list.CustomSelections = {};
 
+    this.world = world;
     fragments.onFragmentsLoaded.add(async (model) => {
       if (model.hasProperties) {
         await indexer.process(model);
@@ -188,7 +200,8 @@ export class BimModel implements OBC.Disposable {
         }
       }
     });
-    //
+    this.selectionPanel = selection(this.components);
+    this.selectionPanel.className = "absolute top-3 right-3 z-10 ";
     effect(() => {
       this.mapBox = mapBoxSignal.value;
     });
@@ -210,7 +223,7 @@ export class BimModel implements OBC.Disposable {
     });
   }
 
-  loadModel = async () => {
+  loadModelFromLocal = async () => {
     try {
       modelLoadingSignal.value = true;
 
@@ -239,11 +252,23 @@ export class BimModel implements OBC.Disposable {
       setNotify(err.message, false);
     }
   };
-  uploadServer = async () => {};
+  loadModelFromServer = async (modelId: string, projectId: string) => {
+    await this.components
+      .get(IfcTilerComponent)
+      .streamFromServer(modelId, projectId);
+  };
+  uploadServer = async (token: string, projectId: string) => {
+    await this.components.get(IfcTilerComponent).uploadServer(token, projectId);
+  };
   initRoom(config: IRoomConfig, socket: Socket, me: IRoomMember) {
     this.components.get(RoomComponent).init(config, socket, me);
   }
-
+  onResize = () => {
+    if (!this.world) return;
+    this.world.renderer?.resize();
+    this.world.camera.updateAspect();
+    this.components.get(MapBoxComponent).onResize();
+  };
   private createContainer() {
     const container = document.createElement("div");
     container.className = "relative h-full w-full overflow-hidden";

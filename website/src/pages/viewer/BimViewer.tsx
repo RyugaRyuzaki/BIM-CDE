@@ -9,6 +9,11 @@ import {useNavigate} from "react-router";
 import {useSearchParams} from "react-router-dom";
 
 import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {
   fileLoaderSignal,
   geometryLoaderSignal,
   propertyLoaderSignal,
@@ -16,6 +21,8 @@ import {
   projectSignal,
   selectProjectSignal,
 } from "@bim/signals";
+
+import * as BUI from "@thatopen/ui";
 /**
  *
  * @returns
@@ -35,7 +42,9 @@ const BimViewer = () => {
       return;
     }
     if (!containerRef.current) return;
+    BUI.Manager.init();
     const model = new BimModel(containerRef.current);
+    containerRef.current.appendChild(model.selectionPanel);
     setBimModel(model);
     bimRouteSignal.value = true;
     if (projectSignal.value) {
@@ -48,6 +57,8 @@ const BimViewer = () => {
             id: model.id,
             name: model.name,
             generated: true,
+            checked: false,
+            isLoaded: false,
           })),
         };
       }
@@ -65,21 +76,36 @@ const BimViewer = () => {
     };
   }, [projectId]);
 
+  const onResize = () => {
+    if (!bimModel) return;
+    setTimeout(bimModel.onResize, 1);
+  };
   return (
-    <div className="relative h-full w-full overflow-hidden flex">
-      <div className="relative h-full w-[15%] p-2 border-r-4">
-        {bimModel && <LeftPanel bimModel={bimModel} />}
-      </div>
-      <div
-        className="relative h-full flex-1 exclude-theme-change"
-        ref={containerRef}
+    <ResizablePanelGroup
+      direction="horizontal"
+      className="relative h-full w-full overflow-hidden flex"
+      onLayout={onResize}
+    >
+      <ResizablePanel
+        defaultSize={15}
+        maxSize={25}
+        className="relative h-full w-[15%] p-2"
       >
-        <Spinner />
-      </div>
+        {bimModel && <LeftPanel bimModel={bimModel} />}
+      </ResizablePanel>
+      <ResizableHandle className="w-[4px]" />
+      <ResizablePanel defaultSize={85}>
+        <div
+          className="relative h-full flex-1 exclude-theme-change"
+          ref={containerRef}
+        >
+          <Spinner />
+        </div>
+      </ResizablePanel>
       <NotifyProgress name="File" signal={fileLoaderSignal} />
       <NotifyProgress name="Geometry" signal={geometryLoaderSignal} />
       <NotifyProgress name="Property" signal={propertyLoaderSignal} />
-    </div>
+    </ResizablePanelGroup>
   );
 };
 

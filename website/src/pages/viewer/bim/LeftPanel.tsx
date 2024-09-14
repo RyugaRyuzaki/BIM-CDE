@@ -24,7 +24,7 @@ const LeftPanel = ({bimModel}: {bimModel: BimModel}) => {
         {!modelLoadedSignal.value && (
           <LoadModel
             handleOpenFile={() => {
-              bimModel.loadModel();
+              bimModel.loadModelFromLocal();
             }}
           />
         )}

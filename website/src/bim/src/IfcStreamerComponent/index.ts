@@ -270,7 +270,6 @@ export class IfcStreamerComponent
     groupBuffer: Uint8Array,
     coordinate: boolean,
     serverUrl: string,
-    baseUrl: string,
     properties?: StreamPropertiesSettings
   ) {
     const {assets, geometries} = settings;
@@ -330,7 +329,7 @@ export class IfcStreamerComponent
         ids,
         types,
         baseFileName: properties.indexesFile,
-        baseUrl,
+        baseUrl: serverUrl + "/",
       };
       const {relationsMap} = properties;
       const indexer = this.components.get(OBC.IfcRelationsIndexer);
@@ -432,11 +431,7 @@ export class IfcStreamerComponent
     this.culler.needsUpdate = true;
   }
 
-  private async getGeometryFile(
-    geometryFile: string,
-    modelID: string,
-    serverUrl?: string
-  ) {
+  private async getGeometryFile(geometryFile: string, serverUrl?: string) {
     if (!this.fromServer) {
       const artifactModelData =
         this.components.get(IfcTilerComponent).artifactModelData;
@@ -502,7 +497,7 @@ export class IfcStreamerComponent
       for (const [file] of sortedFiles) {
         // If this file is still in the ram, get it
         if (!this._ramCache.has(file)) {
-          const bytes = await this.getGeometryFile(file, modelID, serverUrl);
+          const bytes = await this.getGeometryFile(file, serverUrl);
           if (bytes) {
             const data = this.serializer.import(bytes);
             this._ramCache.set(file, data);
@@ -538,15 +533,15 @@ export class IfcStreamerComponent
             const geom = new THREE.BufferGeometry();
 
             const posAttr = new THREE.BufferAttribute(position, 3);
-            const norAttr = new THREE.BufferAttribute(normal, 3);
+            // const norAttr = new THREE.BufferAttribute(normal, 3);
 
             geom.setAttribute("position", posAttr);
-            geom.setAttribute("normal", norAttr);
+            // geom.setAttribute("normal", norAttr);
 
             geom.setIndex(Array.from(index));
-
+            // geom.computeVertexNormals();
             // Separating opaque and transparent items is neccesary for Three.js
-
+            console.log(geom);
             const transp: OBF.StreamedInstance[] = [];
             const opaque: OBF.StreamedInstance[] = [];
             for (const instance of instances) {

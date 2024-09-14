@@ -2,15 +2,15 @@ import {
   geometryLoaderSignal,
   modelLoadedSignal,
   propertyLoaderSignal,
-  spinnerSignal,
 } from "@bim/signals/loader";
 import * as OBC from "@thatopen/components";
 import * as OBF from "@thatopen/components-front";
 import * as FRAGS from "@thatopen/fragments";
-import * as WEBIFC from "web-ifc";
 import * as THREE from "three";
-import {LogLevel} from "web-ifc";
-import {IfcStreamerComponent} from "../IfcStreamerComponent";
+import {
+  IfcStreamerComponent,
+  StreamPropertiesSettings,
+} from "../IfcStreamerComponent";
 import {
   IAssetStreamed,
   IGeometryStreamed,
@@ -23,6 +23,8 @@ import {
 } from "./src/types";
 import {setNotify} from "@components/Notify/baseNotify";
 import {selectProjectSignal} from "@bim/signals";
+import {apiUrl} from "@api/core";
+import axios, {AxiosProgressEvent} from "axios";
 
 interface StreamedProperties {
   types: {
@@ -46,6 +48,10 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
    * This UUID is used to register the component within the Components system.
    */
   static readonly uuid = "245d14fc-e534-4b5e-bdef-c1ca3e6bb734" as const;
+  readonly apiUrl = apiUrl;
+  readonly aws3Host = import.meta.env.VITE_AWS3_HOST;
+  readonly frag = "application/octet-stream" as const;
+  readonly json = "application/json" as const;
   enabled = false;
 
   readonly onDisposed: OBC.Event<any> = new OBC.Event();
@@ -66,6 +72,7 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
   private modelId!: string | null;
   // S3 storage ${host}/${bucket_name}/${modelId}
   artifactModelData!: {
+    ifcBuffer?: Uint8Array;
     assets?: OBC.StreamedAsset[];
     geometries?: OBC.StreamedGeometries;
     groupBuffer?: Uint8Array;
@@ -77,6 +84,7 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
     modelServer?: {modelId: string; name: string};
     propertyServerData?: {
       modelId: string;
+      name: string;
       data: {[id: number]: any};
     }[];
     properties?: FRAGS.IfcProperties;
@@ -200,9 +208,10 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
       if (!this.artifactModelData.properties[id])
         this.artifactModelData.properties[id] = data[id];
     }
-
+    const name = `properties-${this.propertyCount}`;
     this.artifactModelData.propertyServerData.push({
       data,
+      name,
       modelId: this.modelId,
     });
     this.propertyCount++;
@@ -242,8 +251,9 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
     )
       return;
     const customIfcStreamer = this.components.get(IfcStreamerComponent);
+    customIfcStreamer.fromServer = false;
     const settings = {assets, geometries} as OBF.StreamLoaderSettings;
-    const group = await customIfcStreamer.loadFromLocal(
+    await customIfcStreamer.loadFromLocal(
       settings,
       groupBuffer,
       true,
@@ -256,6 +266,8 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
         name,
         id: modelId,
         generated: false,
+        isLoaded: true,
+        checked: true,
       });
       selectProjectSignal.value = {...selectProjectSignal.value};
     }
@@ -295,7 +307,10 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
     this.propertyCount = 0;
     this.modelId = THREE.MathUtils.generateUUID();
 
-    this.artifactModelData = {modelServer: {modelId: this.modelId, name}};
+    this.artifactModelData = {
+      modelServer: {modelId: this.modelId, name},
+      ifcBuffer: buffer,
+    };
 
     this.before = performance.now();
 
@@ -305,173 +320,147 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
     } as IWorkerParser);
   };
 
-  // streamIfcFile = async (buffer: Uint8Array, name: string) => {
-  //   const modelId = THREE.MathUtils.generateUUID();
-  //   if (!this.enabled) throw new Error("This class was not enabled!");
-  //   /* ==========  IfcPropertyTiler  ========== */
-  //   const ifcPropertiesTiler = this.components.get(OBC.IfcPropertiesTiler);
-  //   ifcPropertiesTiler.settings.wasm = this.wasm;
-  //   ifcPropertiesTiler.settings.autoSetWasm = false;
-  //   ifcPropertiesTiler.settings.webIfc = this.webIfc;
-  //   ifcPropertiesTiler.settings.propertiesSize = 500;
-  //   ifcPropertiesTiler.onIndicesStreamed.reset();
-  //   ifcPropertiesTiler.onPropertiesStreamed.reset();
-  //   ifcPropertiesTiler.onProgress.reset();
+  streamFromServer = async (modelId: string, projectId: string) => {
+    try {
+      const customIfcStreamer = this.components.get(IfcStreamerComponent);
+      if (!customIfcStreamer)
+        throw new Error("customIfcStreamer is not initialized!");
+      // const fileName = "18floor.ifc";
+      const serverUrl = `${this.aws3Host}/${projectId}/${modelId}`;
+      customIfcStreamer.fromServer = true;
+      const groupRaw = await axios({
+        url: `${serverUrl}/fragmentsGroup.frag`,
+        method: "GET",
+        responseType: "arraybuffer",
+      });
+      const settingRaw = await axios({
+        url: `${serverUrl}/setting.json`,
+        method: "GET",
+        responseType: "json",
+      });
+      const propertyRaw = await axios({
+        url: `${serverUrl}/properties.json`,
+        method: "GET",
+        responseType: "json",
+      });
+      const propertyIndexesRaw = await axios({
+        url: `${serverUrl}/properties-indexes.json`,
+        method: "GET",
+        responseType: "json",
+      });
+      const setting = settingRaw.data;
+      const group = groupRaw.data;
+      const {ids, types, indexesFile} = propertyRaw.data;
+      const properties = {
+        ids,
+        types,
+        indexesFile,
+        relationsMap: this.getRelationsMapFromJSON(propertyIndexesRaw.data),
+      } as StreamPropertiesSettings;
+      await customIfcStreamer.loadFromServer(
+        setting,
+        new Uint8Array(group),
+        true,
+        serverUrl,
+        properties
+      );
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  private getRelationsMapFromJSON(relations: any) {
+    const indexMap: OBC.RelationsMap = new Map();
+    for (const expressID in relations) {
+      const expressIDRelations = relations[expressID];
+      const relationMap = new Map<number, number[]>();
+      for (const relationID in expressIDRelations) {
+        relationMap.set(Number(relationID), expressIDRelations[relationID]);
+      }
+      indexMap.set(Number(expressID), relationMap);
+    }
+    return indexMap;
+  }
+  uploadServer = async (token: string, projectId: string) => {
+    const {
+      ifcBuffer,
+      assets,
+      groupBuffer,
+      geometries,
+      streamedGeometryFiles,
+      modelServer,
+      propertyServerData,
+      propertyStorageFiles,
+    } = this.artifactModelData;
+    if (
+      ifcBuffer === undefined ||
+      assets === undefined ||
+      geometries === undefined ||
+      groupBuffer === undefined ||
+      streamedGeometryFiles === undefined ||
+      propertyStorageFiles === undefined ||
+      modelServer === undefined ||
+      propertyServerData === undefined
+    ) {
+      setNotify("Missing data", false);
+      return;
+    }
+    try {
+      const {modelId, name} = modelServer;
+      const settings = {assets, geometries};
 
-  //   // storage in S3 because it's large size
-  //   const jsonFile: StreamedProperties = {
-  //     types: {},
-  //     ids: {},
-  //     indexesFile: `properties`,
-  //   };
-  //   // storage in S3 because it's large size
-  //   const propertyStorageFiles: {name: string; bits: Blob}[] = [];
-  //   // post request to server to storage in mongdb
-  //   const propertyServerData: {
-  //     name: string;
-  //     modelId: string;
-  //     data: {[id: number]: any};
-  //   }[] = [];
+      const formData = new FormData();
+      formData.append("projectId", projectId);
+      formData.append("modelId", modelId);
+      formData.append("name", name);
+      //ifcBuffer
+      formData.append("files", new File([ifcBuffer], name, {type: this.frag}));
+      //fragmentsGroup
+      formData.append(
+        "files",
+        new File([groupBuffer], "fragmentsGroup.frag", {type: this.frag})
+      );
+      //settings
+      formData.append(
+        "files",
+        new File([JSON.stringify(settings)], "setting.json", {type: this.json})
+      );
+      // propertyStorageFiles
+      for (const {name, bits} of propertyStorageFiles) {
+        formData.append("files", new File([bits], name, {type: this.json}));
+      }
+      // propertyServerData
+      for (const {name, data} of propertyServerData) {
+        formData.append(
+          "files",
+          new File([JSON.stringify(data)], name, {type: this.json})
+        );
+      }
+      // streamedGeometryFiles
+      for (const geometryFile in streamedGeometryFiles) {
+        const buffer = streamedGeometryFiles[geometryFile];
+        formData.append(
+          "files",
+          new File([buffer], geometryFile, {type: this.frag})
+        );
+      }
 
-  //   let counter = 0;
-  //   // storage in S3 because it's large size
-  //   let propertyJson: FRAGS.IfcProperties;
-  //   // storage in S3 because it's large size
-  //   let assets: OBC.StreamedAsset[] = [];
-  //   // storage in S3 because it's large size
-  //   let geometries: OBC.StreamedGeometries;
-  //   // storage in S3 because it's large size
-  //   let groupBuffer: Uint8Array;
-  //   //
-  //   let geometryFilesCount = 0;
-  //   // storage in S3 because it's large size
-  //   const streamedGeometryFiles: {[fileName: string]: Uint8Array} = {};
+      await axios.post(`${this.apiUrl}/v1/models/uploads`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-  //   const modelServer = {modelId, name};
-  //   const onSuccess = async () => {
-  //     const customIfcStreamer = this.components.get(IfcStreamerComponent);
-  //     if (!customIfcStreamer) return;
-  //     customIfcStreamer.fromServer = false;
-  //     if (
-  //       propertyStorageFiles.length === 0 ||
-  //       propertyServerData.length === 0 ||
-  //       assets.length === 0 ||
-  //       geometries === undefined ||
-  //       groupBuffer === undefined ||
-  //       !propertyJson
-  //     )
-  //       return;
-  //     const settings = {assets, geometries} as OBF.StreamLoaderSettings;
-  //     const group = await customIfcStreamer.loadFromLocal(
-  //       settings,
-  //       groupBuffer,
-  //       true,
-  //       propertyJson
-  //     );
-  //     const uuid = group.uuid;
-  //     if (!this.artifactModelData[uuid]) {
-  //       this.artifactModelData[uuid] = {
-  //         modelServer,
-  //         settings,
-  //         groupBuffer,
-  //         propertyStorageFiles,
-  //         propertyServerData,
-  //         streamedGeometryFiles,
-  //       };
-  //     }
-  //   };
-
-  //   ifcPropertiesTiler.onPropertiesStreamed.add(
-  //     async (props: {type: number; data: {[id: number]: any}}) => {
-  //       const {type, data} = props;
-  //       if (!jsonFile.types[type]) jsonFile.types[type] = [];
-  //       jsonFile.types[type].push(counter);
-  //       if (!propertyJson) propertyJson = {};
-  //       for (const id in data) {
-  //         jsonFile.ids[id] = counter;
-  //         if (!propertyJson[id]) propertyJson[id] = data[id];
-  //       }
-
-  //       const name = `properties-${counter}`;
-
-  //       propertyServerData.push({data, name, modelId});
-  //       counter++;
-  //     }
-  //   );
-  //   ifcPropertiesTiler.onIndicesStreamed.add(
-  //     async (props: Map<number, Map<number, number[]>>) => {
-  //       const bits = new Blob([JSON.stringify(jsonFile)]);
-  //       propertyStorageFiles.push({
-  //         name: `properties.json`,
-  //         bits,
-  //       });
-  //       const relations = this.components.get(OBC.IfcRelationsIndexer);
-  //       const serializedRels = relations.serializeRelations(props);
-  //       propertyStorageFiles.push({
-  //         name: `properties-indexes.json`,
-  //         bits: new Blob([serializedRels]),
-  //       });
-  //     }
-  //   );
-  //   // progress
-  //   ifcPropertiesTiler.onProgress.add(async (progress: number) => {
-  //     propertyLoaderSignal.value = progress;
-  //     if (progress !== 1) return;
-  //     await onSuccess();
-  //   });
-  //   await ifcPropertiesTiler.streamFromBuffer(buffer);
-  //   /* ==========  IfcGeometryTiler  ========== */
-  //   const ifcGeometryTiler = this.components.get(OBC.IfcGeometryTiler);
-  //   ifcGeometryTiler.settings.wasm = this.wasm;
-  //   ifcGeometryTiler.settings.autoSetWasm = false;
-  //   ifcGeometryTiler.settings.webIfc = this.webIfc;
-  //   ifcGeometryTiler.settings.minGeometrySize = 10;
-  //   ifcGeometryTiler.settings.minAssetsSize = 1000;
-  //   ifcGeometryTiler.onAssetStreamed.reset();
-  //   ifcGeometryTiler.onGeometryStreamed.reset();
-  //   ifcGeometryTiler.onIfcLoaded.reset();
-  //   ifcGeometryTiler.onProgress.reset();
-
-  //   const streamGeometry = async (
-  //     data: OBC.StreamedGeometries,
-  //     buffer: Uint8Array
-  //   ) => {
-  //     const geometryFile = `geometries-${geometryFilesCount}.frag`;
-  //     if (geometries === undefined) geometries = {};
-  //     for (const id in data) {
-  //       if (!geometries[id]) geometries[id] = {...data[id], geometryFile};
-  //     }
-  //     if (!streamedGeometryFiles[geometryFile])
-  //       streamedGeometryFiles[geometryFile] = buffer;
-  //     geometryFilesCount++;
-  //   };
-
-  //   ifcGeometryTiler.onAssetStreamed.add(
-  //     async (assetItems: OBC.StreamedAsset[]) => {
-  //       assets = [...assets, ...assetItems];
-  //     }
-  //   );
-
-  //   ifcGeometryTiler.onGeometryStreamed.add(
-  //     async ({
-  //       data,
-  //       buffer,
-  //     }: {
-  //       data: OBC.StreamedGeometries;
-  //       buffer: Uint8Array;
-  //     }) => {
-  //       await streamGeometry(data, buffer);
-  //     }
-  //   );
-
-  //   ifcGeometryTiler.onIfcLoaded.add(async (group: Uint8Array) => {
-  //     groupBuffer = group;
-  //     await onSuccess();
-  //   });
-  //   ifcGeometryTiler.onProgress.add(async (progress: number) => {
-  //     if (progress !== 1) return;
-  //     await onSuccess();
-  //   });
-  //   await ifcGeometryTiler.streamFromBuffer(buffer);
-  // };
+      if (selectProjectSignal.value) {
+        const model = selectProjectSignal.value.models.find(
+          ({id}) => id === modelId
+        );
+        if (!model) return;
+        model.generated = true;
+        selectProjectSignal.value = {...selectProjectSignal.value};
+        setNotify("Upload successfully!");
+      }
+    } catch (error: any) {
+      setNotify(error.message, false);
+    }
+  };
 }

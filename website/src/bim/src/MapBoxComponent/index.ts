@@ -280,16 +280,13 @@ export class MapBoxComponent
    * resize window
    */
   private updateLabelRendererSize = () => {
-    setTimeout(() => {
-      this.map!.resize();
-      if (this.renderer?.domElement) {
-        const {width, height} =
-          this.renderer.domElement.getBoundingClientRect();
-        this.labelRenderer.setSize(width, height);
-        this.camera.aspect = width / height;
-        this.camera.updateProjectionMatrix();
-      }
-    }, 1);
+    this.map!.resize();
+    if (this.renderer?.domElement) {
+      const {width, height} = this.renderer.domElement.getBoundingClientRect();
+      this.labelRenderer.setSize(width, height);
+      this.camera.aspect = width / height;
+      this.camera.updateProjectionMatrix();
+    }
   };
   onResize = () => {
     if (!this.renderer || !this.container || !this.map) return;

@@ -16,11 +16,37 @@ import {
 import {useSignals} from "@preact/signals-react/runtime";
 import {selectProjectSignal} from "@bim/signals";
 import {BimModel} from "@bim/BimModel";
-
+import {useAuth} from "@clerk/clerk-react";
+import {IModelParser} from "@bim/types";
+import {Checkbox} from "@/components/ui/checkbox";
 const ProjectTree = ({bimModel}: {bimModel: BimModel}) => {
   useSignals();
-  const handleUploadServer = () => {
-    //bimModel
+  const {getToken} = useAuth();
+  const onUpload = async () => {
+    if (!selectProjectSignal.value) return;
+    const token = await getToken();
+    if (!token) return;
+    await bimModel.uploadServer(token, selectProjectSignal.value!.id);
+  };
+  const onLoadModel = async (model: IModelParser, checked: boolean) => {
+    if (!selectProjectSignal.value) return;
+    if (!model.generated) {
+      // mean this model from local
+    } else {
+      // mean this model from server
+      if (!model.isLoaded) {
+        // mean this model was not visible
+        await bimModel.loadModelFromServer(
+          model.id,
+          selectProjectSignal.value.id
+        );
+      } else {
+        // toggle visible model
+      }
+    }
+    console.log(model);
+    model.checked = checked;
+    selectProjectSignal.value = {...selectProjectSignal.value};
   };
   return (
     <div className="relative w-full overflow-x-hidden overflow-y-auto max-h-[500px]">
@@ -36,43 +62,54 @@ const ProjectTree = ({bimModel}: {bimModel: BimModel}) => {
                   <p className="text-center">No Models</p>
                 ) : (
                   <>
-                    {selectProjectSignal.value.models.map((model) => (
-                      <div
-                        key={model.id}
-                        className={`group flex justify-between p-1   rounded-md my-1`}
-                      >
-                        <div className="flex justify-start">
-                          <p
-                            className="mx-2 capitalize 
+                    {selectProjectSignal.value.models.map(
+                      (model: IModelParser) => (
+                        <div
+                          key={model.id}
+                          className={`group flex justify-between p-1   rounded-md my-1`}
+                        >
+                          <div className="flex justify-start">
+                            <Checkbox
+                              className="mx-2 my-auto"
+                              checked={model.checked}
+                              onCheckedChange={(checked: boolean) =>
+                                onLoadModel(model, checked)
+                              }
+                            />
+                            <p
+                              className="mx-2 capitalize 
                        my-auto select-none 
                        whitespace-nowrap overflow-hidden 
                        overflow-ellipsis max-w-[200px] p-1"
-                          >
-                            {model.name}
-                          </p>
+                            >
+                              {model.name}
+                            </p>
+                          </div>
+                          <div className="flex justify-end">
+                            {!model.generated && (
+                              <TooltipProvider delayDuration={10}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      className="flex-1 p-0 bg-transparent hover:bg-transparent"
+                                      onClick={onUpload}
+                                    >
+                                      <FaUpload className="text-white" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent
+                                    side="right"
+                                    className="text-white bg-slate-900"
+                                  >
+                                    Upload to server
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex justify-end">
-                          <TooltipProvider delayDuration={10}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  className="flex-1 p-0 bg-transparent hover:bg-transparent"
-                                  onClick={handleUploadServer}
-                                >
-                                  <FaUpload className="text-white" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="right"
-                                className="text-white bg-slate-900"
-                              >
-                                Upload to server
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    )}
                   </>
                 )}
               </>

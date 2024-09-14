@@ -26,7 +26,7 @@ export class IfcFragmentSettings {
   };
 
   /** List of categories that won't be converted to fragments. */
-  excludedCategories = new Set<number>();
+  excludedCategories = new Set<number>([WEBIFC.IFCOPENINGELEMENT]);
 
   /** Exclusive list of categories that will be converted to fragments. If this contains any category, any other categories will be ignored. */
   includedCategories = new Set<number>();
