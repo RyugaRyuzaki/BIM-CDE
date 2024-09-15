@@ -1,9 +1,7 @@
 import * as WEBIFC from "web-ifc";
 import {Units} from "./units";
+import {IfcItemsCategories} from "../../types";
 
-export interface IfcItemsCategories {
-  [itemID: number]: number;
-}
 export class SpatialStructure {
   itemsByFloor: IfcItemsCategories = {};
 

@@ -47,10 +47,12 @@ export const newModel = async (
 };
 export const derivativeFile = async (
   file: File,
-  projectId: string
+  projectId: string,
+  token: string
 ): Promise<any> => {
   const formData = new FormData();
   formData.append("projectId", projectId);
+  formData.append("token", token);
   formData.append("file", file);
   return await axios.post(`${derivativeUrl}/v1/derivative`, formData);
 };

@@ -27,7 +27,6 @@ export const models = pgTable("models", {
 export const modelMetadata = pgTable("modelMetadata", {
   modelId: uuid("model_id")
     .references(() => models.id)
-    .primaryKey()
     .notNull(),
   xCoord: numeric("x_coord", {precision: 100}).notNull(),
   yCoord: numeric("y_coord", {precision: 100}).notNull(),

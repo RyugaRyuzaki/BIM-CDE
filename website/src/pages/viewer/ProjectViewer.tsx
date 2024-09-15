@@ -18,6 +18,8 @@ import {useNavigate} from "react-router";
 import {isBrowser} from "@constants/browser";
 import {IProject} from "@bim/types";
 import {derivativeFile} from "@api/project";
+import {useAuth} from "@clerk/clerk-react";
+import {setNotify} from "@components/Notify/baseNotify";
 const iconClassName = "h-[20px] w-[20px]";
 
 /**
@@ -26,7 +28,7 @@ const iconClassName = "h-[20px] w-[20px]";
  */
 const ProjectViewer = () => {
   const navigate = useNavigate();
-
+  const {getToken} = useAuth();
   const [openNewProject, setOpenNewProject] = useState<boolean>(false);
 
   const [selectProject, setSelectProject] = useState<IProject | null>(null);
@@ -43,6 +45,13 @@ const ProjectViewer = () => {
   };
   const onUploadServer = async () => {
     if (!selectProject) return;
+
+    const token = await getToken();
+    if (!token) {
+      setNotify("UnAuthorization!");
+      return;
+    }
+
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".ifc, .IFC, .dxf";
@@ -51,7 +60,7 @@ const ProjectViewer = () => {
     input.onchange = async (e: any) => {
       const file = e.target.files[0] as File;
       if (!file) return;
-      const res = await derivativeFile(file, selectProject.id);
+      const res = await derivativeFile(file, selectProject.id, token);
       console.log(res);
     };
     input.remove();

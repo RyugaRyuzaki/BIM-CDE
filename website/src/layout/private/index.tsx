@@ -19,6 +19,7 @@ const PrivateLayout = () => {
       try {
         const token = await getToken();
         const res = await getListProject(token!);
+        console.log(res.data.projects);
         projectSignal.value = res.data.projects.map((pro) => ({
           id: pro.id,
           name: pro.name,

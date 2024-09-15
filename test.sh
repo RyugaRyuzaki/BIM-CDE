@@ -1,0 +1,1 @@
+autocannon -c 100 -d 1 -m POST  http://localhost:8083/api/v1/derivative --form '{"projectId": { "type": "text", "value": "a text value"}, "file":{"type":"file","path":"E:/Ryuga/IFCModel/BowerBI.ifc"}}'

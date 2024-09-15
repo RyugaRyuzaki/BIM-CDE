@@ -14,6 +14,7 @@ export interface IModel {
   id: string;
   name: string;
   versionId: string;
+  meta: any;
 }
 export interface IProject {
   id: string;

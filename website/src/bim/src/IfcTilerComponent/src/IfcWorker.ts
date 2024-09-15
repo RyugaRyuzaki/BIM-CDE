@@ -9,8 +9,6 @@ import {
   IProgress,
   IWorkerParser,
   IWorkerReceive,
-  StreamedAsset,
-  StreamedGeometries,
 } from "./types";
 import {IfcPropertiesTiler} from "./IfcPropertiesTiler";
 import {IfcGeometryTiler} from "./IfcGeometryTiler";

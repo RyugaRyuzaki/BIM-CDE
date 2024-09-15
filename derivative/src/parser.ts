@@ -1,6 +1,6 @@
 import {Request, Response, NextFunction} from "express";
 import multer from "multer";
-import {Worker} from "worker_threads";
+import {ParserManager} from "./ParserManager";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -39,24 +39,18 @@ export class Parser {
 
         return next({statusCode: 403, message: "File not found"});
       }
-      const {projectId} = req.body;
-      if (!projectId)
+      const {projectId, token} = req.body;
+      if (!projectId || !token)
         return next({
           statusCode: 403,
           message: "Missing Data",
         });
       try {
-        const {buffer} = req.file;
-
-        const worker = new Worker("./IfcWorker.ts", {workerData: 1000000});
-        worker.on("message", (msg) => {
-          console.log(msg);
-        });
-        worker.on("error", (err) => console.error(err));
-
+        const {buffer, originalname} = req.file;
+        new ParserManager().streamModel(buffer, originalname, projectId, token);
         return res.status(200).json({
           length: buffer.length,
-          message: "Server received, this parser process takes few minutes!",
+          message: token,
         });
       } catch (error) {
         next(error);

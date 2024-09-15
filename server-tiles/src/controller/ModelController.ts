@@ -5,7 +5,7 @@ import {configRedis, db, redisClient} from "../db";
 import {WithAuthProp} from "@clerk/clerk-sdk-node";
 import {getUserInfo} from "./ProjectController";
 import {awsClient, uploadSmall} from "../config/AWS3";
-import {models, Properties} from "../db/schema";
+import {modelMetadata, models, Properties} from "../db/schema";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -120,6 +120,15 @@ export class ModelController extends BaseController<
           .values({name, projectId, id: modelId})
           .returning({id: models.id});
 
+        await this.db.insert(modelMetadata).values({
+          modelId,
+          xCoord: "0",
+          yCoord: "0",
+          zCoord: "0",
+          rotation: "0",
+          lng: "0",
+          lat: "0",
+        });
         const userProjects = await getUserInfo(userId);
         await redisClient.set(
           sessionId,
