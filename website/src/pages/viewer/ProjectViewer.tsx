@@ -7,6 +7,7 @@ import ProjectContent from "./project/ProjectContent";
 import {SiAirplayvideo} from "react-icons/si";
 import {FaShareFromSquare} from "react-icons/fa6";
 import {MdPreview} from "react-icons/md";
+import {IoCloudUploadOutline} from "react-icons/io5";
 import {
   Tooltip,
   TooltipContent,
@@ -16,6 +17,7 @@ import {
 import {useNavigate} from "react-router";
 import {isBrowser} from "@constants/browser";
 import {IProject} from "@bim/types";
+import {derivativeFile} from "@api/project";
 const iconClassName = "h-[20px] w-[20px]";
 
 /**
@@ -38,6 +40,21 @@ const ProjectViewer = () => {
     navigate(
       `/viewer/bim?projectId=${selectProject.id}&private=true&preview=true`
     );
+  };
+  const onUploadServer = async () => {
+    if (!selectProject) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".ifc, .IFC, .dxf";
+    input.multiple = false;
+    input.click();
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0] as File;
+      if (!file) return;
+      const res = await derivativeFile(file, selectProject.id);
+      console.log(res);
+    };
+    input.remove();
   };
   const onShare = () => {
     if (!selectProject) return;
@@ -105,6 +122,21 @@ const ProjectViewer = () => {
                           </TooltipTrigger>
                           <TooltipContent side="bottom">
                             <p>Share Project</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider delayDuration={10}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant={"secondary"}
+                              onClick={onUploadServer}
+                            >
+                              <IoCloudUploadOutline className={iconClassName} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            <p>Upload file</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>

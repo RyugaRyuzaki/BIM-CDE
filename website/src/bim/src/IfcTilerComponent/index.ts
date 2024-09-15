@@ -25,7 +25,7 @@ import {
 import {setNotify} from "@components/Notify/baseNotify";
 import {selectProjectSignal} from "@bim/signals";
 import {apiUrl} from "@api/core";
-import axios, {AxiosProgressEvent} from "axios";
+import axios from "axios";
 
 interface StreamedProperties {
   types: {
@@ -409,6 +409,7 @@ export class IfcTilerComponent extends OBC.Component implements OBC.Disposable {
       return;
     }
     spinnerSignal.value = true;
+
     try {
       const {modelId, name} = modelServer;
       const settings = {assets, geometries};

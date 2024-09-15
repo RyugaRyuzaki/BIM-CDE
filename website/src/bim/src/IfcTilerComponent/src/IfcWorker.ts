@@ -53,7 +53,7 @@ const ifcGeometryTiler = new IfcGeometryTiler(
 ifcGeometryTiler.settings.wasm = wasm;
 ifcGeometryTiler.settings.autoSetWasm = false;
 ifcGeometryTiler.settings.webIfc = webIfc;
-ifcGeometryTiler.settings.minGeometrySize = 10;
+ifcGeometryTiler.settings.minGeometrySize = 20;
 ifcGeometryTiler.settings.minAssetsSize = 1000;
 
 // streamer property

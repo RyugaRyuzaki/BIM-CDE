@@ -1,5 +1,5 @@
 import axios, {AxiosResponse} from "axios";
-import {apiUrl} from "./core";
+import {apiUrl, derivativeUrl} from "./core";
 import {IProject} from "@bim/types";
 
 export const getListProject = async (
@@ -44,4 +44,13 @@ export const newModel = async (
     },
     data,
   });
+};
+export const derivativeFile = async (
+  file: File,
+  projectId: string
+): Promise<any> => {
+  const formData = new FormData();
+  formData.append("projectId", projectId);
+  formData.append("file", file);
+  return await axios.post(`${derivativeUrl}/v1/derivative`, formData);
 };

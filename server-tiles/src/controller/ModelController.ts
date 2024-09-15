@@ -2,7 +2,6 @@ import multer from "multer";
 import {Request, Response, NextFunction} from "express";
 import {BaseController} from "./BaseController";
 import {configRedis, db, redisClient} from "../db";
-import {forbidden} from "../config/ErrorHandler";
 import {WithAuthProp} from "@clerk/clerk-sdk-node";
 import {getUserInfo} from "./ProjectController";
 import {awsClient, uploadSmall} from "../config/AWS3";

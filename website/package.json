@@ -67,6 +67,7 @@
         "tailwind-merge": "^2.4.0",
         "tailwindcss-animate": "^1.0.7",
         "three": "0.160.1",
+        "three-stdlib": "^2.33.0",
         "vaul": "^0.9.1",
         "web-ifc": "0.0.57",
         "zod": "^3.23.8"

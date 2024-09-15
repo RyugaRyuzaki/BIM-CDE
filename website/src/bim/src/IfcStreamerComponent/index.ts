@@ -5,6 +5,7 @@ import * as OBF from "@thatopen/components-front";
 import axios from "axios";
 import {IfcTilerComponent} from "../IfcTilerComponent";
 import {GeometryCullerRenderer} from "./src";
+import {StreamSerializer} from "../streamed-geometries";
 export interface StreamPropertiesSettings {
   /**
    * Map of identifiers to numbers.
@@ -64,7 +65,7 @@ export class IfcStreamerComponent
   /**
    * Importer of binary IFC data previously converted to fragment tiles.
    */
-  serializer = new FRAG.StreamSerializer();
+  serializer = new StreamSerializer();
 
   /**
    * Maximum time in milliseconds for a geometry to stay in the RAM cache.
@@ -75,7 +76,16 @@ export class IfcStreamerComponent
 
   private _world: OBC.World | null = null;
 
-  private _ramCache = new Map<string, FRAG.StreamedGeometries>();
+  private _ramCache = new Map<
+    string,
+    Map<
+      number,
+      {
+        position: Float32Array;
+        index: Uint32Array;
+      }
+    >
+  >();
 
   private _isDisposing = false;
 
@@ -513,7 +523,7 @@ export class IfcStreamerComponent
 
         const loaded: FRAG.Fragment[] = [];
         if (result) {
-          for (const [geometryID, {position, index, normal}] of result) {
+          for (const [geometryID, {position, index}] of result) {
             if (this._isDisposing) return;
 
             if (!allIDs.has(geometryID)) continue;

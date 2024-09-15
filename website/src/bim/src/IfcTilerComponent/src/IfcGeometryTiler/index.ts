@@ -11,6 +11,7 @@ import {
   SpatialStructure,
 } from "./src";
 import {StreamedAsset, StreamedGeometries} from "../types";
+import {StreamSerializer} from "@bim/src/streamed-geometries";
 
 /**
  * A component that handles the tiling of IFC geometries for efficient streaming. 📕 [Tutorial](https://docs.thatopen.com/Tutorials/Components/Core/IfcGeometryTiler). 📘 [API](https://docs.thatopen.com/api/@thatopen/components/classes/IfcGeometryTiler).
@@ -31,7 +32,7 @@ export class IfcGeometryTiler {
   private _metaData = new IfcMetadataReader();
 
   private _visitedGeometries = new Map<number, {uuid: string; index: number}>();
-  private _streamSerializer = new FRAGS.StreamSerializer();
+  private _streamSerializer = new StreamSerializer();
 
   private _geometries: Map<
     number,
